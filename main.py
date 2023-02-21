@@ -1,7 +1,12 @@
-from translate_timestamp import translate_timestamp
-from translate_incremental_encoder import *
+from handle_timestamp import *
+from handle_incremental_encoder import *
+
 number_of_comments_in_dataset_file = 8
 dataset_path = "dataset.txt"
 main_informations_separator = ":"
-#translate_timestamp(dataset_path, number_of_comments_in_dataset_file, main_informations_separator)
-translate_incremental_encoder(dataset_path, number_of_comments_in_dataset_file, main_informations_separator)
+
+[translated_timestamp_array, FIRST_timestamp] = translate_timestamp(dataset_path, number_of_comments_in_dataset_file, main_informations_separator)
+timestamp_validation = validate_timestamp_translation(dataset_path, number_of_comments_in_dataset_file, main_informations_separator, translated_timestamp_array, FIRST_timestamp)
+
+[translated_IncEncInfo_array, FIRST_IncEncInfo] = translate_incremental_encoder_informations(dataset_path, number_of_comments_in_dataset_file, main_informations_separator)
+IncEncInfo_validation = validate_incremental_encoder_information_translation(dataset_path, number_of_comments_in_dataset_file, main_informations_separator, translated_IncEncInfo_array, FIRST_IncEncInfo)
