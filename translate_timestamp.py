@@ -9,7 +9,7 @@ def translate_timestamp(dataset_path, number_of_comments, separator):
 	lines = f.read().splitlines()
 	translated_timestamp_array = []
 	time_sampling_array = []
-	for i in range(8, len(lines)):
+	for i in range(number_of_comments, len(lines)):
 		current_timestamp = float(take_one_word_from_line(lines[i], separator, 1, 0))
 		[translated_current_timestamp, time_sampling] = translated_timestamp_and_time_sampling(current_timestamp, FIRST_timestamp, previous_timestamp)
 		translated_timestamp_array.append(translated_current_timestamp)
