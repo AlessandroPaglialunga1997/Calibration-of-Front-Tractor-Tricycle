@@ -1,10 +1,13 @@
 # num stands for number
+def take_one_word_from_token(token, word_idx):
+    string = token.strip()
+    splitted_words = string.split(" ")
+    word = splitted_words[word_idx]
+    return word
 
 def take_one_word_from_line(line, separator, token_idx, word_idx):
     tokens = line.split(separator)
-    string = tokens[token_idx].strip()
-    splitted_words = string.split(" ")
-    word = splitted_words[word_idx]
+    word = take_one_word_from_token(tokens[token_idx], word_idx)
     return word
 
 def take_one_word_from_file(file_path, line_idx, separator, token_idx, word_idx):
@@ -31,3 +34,9 @@ def num_of_words_in_token(file_path, line_idx, separator, token_idx):
     string = tokens[token_idx].strip()
     splitted_words = string.split(" ")
     return len(splitted_words)
+
+def tokens_in_line(file_path, line_idx, separator):
+    f = open(file_path)
+    lines = f.read().splitlines()
+    tokens = lines[line_idx].split(separator)
+    return tokens
