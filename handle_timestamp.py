@@ -1,33 +1,39 @@
-import numpy as np
+# TS stands for TimeStamp
+# DS stands for DataSet
+# num stands for number
+# pre stands for previous
+# cur stands fro current
+ 
 from utilities import *
+import numpy as np
 
-def translate_timestamp(dataset_path, number_of_comments, separator):
-	FIRST_timestamp = float(take_one_word_from_file(dataset_path, number_of_comments, separator, 1, 0))
-	previous_timestamp = FIRST_timestamp
+def translate_TS(DS_path, num_comments, separator):
+	FIRST_TS = float(take_one_word_from_file(DS_path, num_comments, separator, 1, 0))
+	pre_TS = FIRST_TS
 	
-	f = open(dataset_path)
+	f = open(DS_path)
 	lines = f.read().splitlines()
-	translated_timestamp_array = []
+	translated_TS_array = []
 	time_sampling_array = []
-	for i in range(number_of_comments, len(lines)):
-		current_timestamp = float(take_one_word_from_line(lines[i], separator, 1, 0))
-		[translated_current_timestamp, time_sampling] = translated_timestamp_and_time_sampling(current_timestamp, FIRST_timestamp, previous_timestamp)
-		translated_timestamp_array.append(translated_current_timestamp)
+	for line_idx in range(num_comments, len(lines)):
+		cur_TS = float(take_one_word_from_line(lines[line_idx], separator, 1, 0))
+		[translated_cur_TS, time_sampling] = translated_TS_and_time_sampling(cur_TS, FIRST_TS, pre_TS)
+		translated_TS_array.append(translated_cur_TS)
 		time_sampling_array.append(time_sampling)
-		previous_timestamp = current_timestamp
-	return [translated_timestamp_array, FIRST_timestamp]
+		pre_TS = cur_TS
+	return [np.asarray(translated_TS_array), FIRST_TS]
 
-def translated_timestamp_and_time_sampling(current_timestamp, FIRST_timestamp, previous_timestamp):
-	translated_current_timestamp = current_timestamp - FIRST_timestamp
-	time_sampling = current_timestamp - previous_timestamp
-	return [translated_current_timestamp, time_sampling]
+def translated_TS_and_time_sampling(cur_TS, FIRST_TS, pre_TS):
+	translated_cur_TS = cur_TS - FIRST_TS
+	time_sampling = cur_TS - pre_TS
+	return [translated_cur_TS, time_sampling]
 
-def validate_timestamp_translation(dataset_path, number_of_comments, separator, translated_timestamp_array, FIRST_timestamp):
-	f = open(dataset_path)
+def val_TS_translation(DS_path, num_comments, separator, translated_TS_array, FIRST_TS):
+	f = open(DS_path)
 	lines = f.read().splitlines()
-	for i in range(number_of_comments, len(lines)):
-		timestamp_idx = i - number_of_comments
-		current_timestamp = float(take_one_word_from_line(lines[i], separator, 1, 0))
-		if (translated_timestamp_array[timestamp_idx] + FIRST_timestamp != current_timestamp):
+	for line_idx in range(num_comments, len(lines)):
+		TS_idx = line_idx - num_comments
+		cur_TS = float(take_one_word_from_line(lines[line_idx], separator, 1, 0))
+		if (translated_TS_array[TS_idx] + FIRST_TS != cur_TS):
 			return False
 	return True

@@ -1,12 +1,22 @@
+# TS stands for TimeStamp
+# DS stands for DataSet
+# IncEncInfo stands for Incremental Encoder Information
+# num stands for number
+# tokens stands for informations
+
 from handle_timestamp import *
 from handle_incremental_encoder import *
+from handle_dataset import *
+import numpy as np
 
-number_of_comments_in_dataset_file = 8
-dataset_path = "dataset.txt"
-main_informations_separator = ":"
+DS_path = "dataset.txt"
+num_comments = 8 # in the given dataset
+tokens_separator = ":"
 
-[translated_timestamp_array, FIRST_timestamp] = translate_timestamp(dataset_path, number_of_comments_in_dataset_file, main_informations_separator)
-timestamp_validation = validate_timestamp_translation(dataset_path, number_of_comments_in_dataset_file, main_informations_separator, translated_timestamp_array, FIRST_timestamp)
+[translated_TS_array, FIRST_TS] = translate_TS(DS_path, num_comments, tokens_separator)
+[translated_IncEncInfo_array, FIRST_IncEncInfo] = translate_IncEncInfo(DS_path, num_comments, tokens_separator)
 
-[translated_IncEncInfo_array, FIRST_IncEncInfo] = translate_incremental_encoder_informations(dataset_path, number_of_comments_in_dataset_file, main_informations_separator)
-IncEncInfo_validation = validate_incremental_encoder_information_translation(dataset_path, number_of_comments_in_dataset_file, main_informations_separator, translated_IncEncInfo_array, FIRST_IncEncInfo)
+TS_val = val_TS_translation(DS_path, num_comments, tokens_separator, translated_TS_array, FIRST_TS)
+IncEncInfo_val = val_IncEncInfo_translation(DS_path, num_comments, tokens_separator, translated_IncEncInfo_array, FIRST_IncEncInfo)
+
+read_DS(DS_path, num_comments, tokens_separator)
