@@ -10,7 +10,7 @@
 from utilities import *
 import numpy as np
 
-def translate_IncEncInfo(DS_path, num_comments, separator):
+def translate_IncEncInfo_to_avoid_uint64_overflow(DS_path, num_comments, separator):
     FIRST_IncEncInfo = int(take_one_word_from_file(DS_path, num_comments, separator, 2, 1))
     pre_IncEncInfo = FIRST_IncEncInfo
 
@@ -38,23 +38,3 @@ def absolute_tick_steps(cur_IncEncInfo, pre_IncEncInfo):
     else:
         tick_steps = tick_steps_WITHOUT_OVERFLOW
     return tick_steps
-
-def val_IncEncInfo_translation(DS_path, num_comments, separator, translated_IncEncInfo_array, FIRST_IncEncInfo):
-    max_value_of_uint32 = 4294967295
-    f = open(DS_path)
-    lines = f.read().splitlines()
-    pre_IncEncInfo = FIRST_IncEncInfo
-    pre_translated_IncEncInfo = translated_IncEncInfo_array[0]
-    for line_idx in range(num_comments, len(lines)):
-        TS_idx = line_idx - num_comments
-        cur_IncEncInfo = int(take_one_word_from_line(lines[line_idx], separator, 2, 1))
-        cur_translated_IncEncInfo = translated_IncEncInfo_array[TS_idx]
-        tick_steps = cur_translated_IncEncInfo - pre_translated_IncEncInfo
-        estimated_cur_IncEncInfo = pre_IncEncInfo + tick_steps
-        if(estimated_cur_IncEncInfo > max_value_of_uint32):
-            estimated_cur_IncEncInfo -= max_value_of_uint32 
-        if(estimated_cur_IncEncInfo != cur_IncEncInfo):
-            return False
-        pre_translated_IncEncInfo = cur_translated_IncEncInfo
-        pre_IncEncInfo = cur_IncEncInfo
-    return True

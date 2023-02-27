@@ -35,8 +35,22 @@ def num_of_words_in_token(file_path, line_idx, separator, token_idx):
     splitted_words = string.split(" ")
     return len(splitted_words)
 
+def num_of_words_in_line(file_path, line_idx):
+    f = open(file_path)
+    lines = f.read().splitlines()
+    string = lines[line_idx].strip()
+    splitted_words = string.split(" ")
+    return len(splitted_words)
+
 def tokens_in_line(file_path, line_idx, separator):
     f = open(file_path)
     lines = f.read().splitlines()
     tokens = lines[line_idx].split(separator)
     return tokens
+
+def words_in_line(file_path, line_idx):
+    f = open(file_path)
+    lines = f.read().splitlines()
+    string = lines[line_idx].strip()
+    splitted_words = string.split(" ")
+    return splitted_words

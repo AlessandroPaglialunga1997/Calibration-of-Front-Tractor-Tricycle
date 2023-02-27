@@ -29,8 +29,8 @@ def read_DS(DS_path, num_comments, separator):
     DS_file = open(DS_path)
     [num_infos_per_token_array, total_num_of_infos] = tokens_dimensions(DS_path, separator, num_comments, num_tokens)
 
-    data = take_data(DS_path, separator, num_records, num_comments, num_infos_per_token_array, total_num_of_infos)
-    return data
+    string_data = take_data(DS_path, separator, num_records, num_comments, num_infos_per_token_array, total_num_of_infos)
+    return [num_infos_per_token_array, string_data]
 
 def tokens_dimensions(DS_path, separator, num_comments, num_tokens):
     token_name_array = []
@@ -52,7 +52,7 @@ def tokens_dimensions(DS_path, separator, num_comments, num_tokens):
 def take_data(DS_path, separator, num_records, num_comments, num_infos_per_token_array, total_num_of_infos):
     DS_file = open(DS_path)
     lines = DS_file.read().splitlines()
-    data = np.empty((num_records, total_num_of_infos), dtype='float64')
+    string_data = np.empty((num_records, total_num_of_infos), dtype='S20')
     for line_idx in range(num_comments, len(lines)):
         tokens = tokens_in_line(DS_path, line_idx, separator)
         record_idx = line_idx - num_comments
@@ -60,6 +60,21 @@ def take_data(DS_path, separator, num_records, num_comments, num_infos_per_token
             token_name = take_one_word_from_token(tokens[token_idx-1], -1)
             for info_idx in range(0, num_infos_per_token_array[token_name][0]):
                 column_idx = num_infos_per_token_array[token_name][1] + info_idx
-                data[record_idx][column_idx] = float(take_one_word_from_token(tokens[token_idx], info_idx))
-    return data
-    
+                string_data[record_idx][column_idx] = take_one_word_from_token(tokens[token_idx], info_idx)
+    return string_data
+
+def read_new_DS(new_DS_path):
+    new_DS_file = open(new_DS_path)
+    lines = new_DS_file.read().splitlines()
+    num_records = len(lines)
+    if(num_records == 0):
+        return [False, 0]
+    total_num_of_infos = num_of_words_in_line(new_DS_path, 0)
+    data = np.empty((num_records, total_num_of_infos), dtype='S20')
+    for line_idx in range(0, num_records):
+        line_data = words_in_line(new_DS_path, line_idx)
+        if(len(line_data) != total_num_of_infos):
+                return [False, data]
+        for data_idx in range(0, len(line_data)):
+            data[line_idx][data_idx] = line_data[data_idx]
+    return [True, data]
