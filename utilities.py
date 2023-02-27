@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 def compare_matrices(A, B):
     if (A.shape != B.shape):
         return False

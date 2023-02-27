@@ -20,7 +20,6 @@ num_comments_in_clened_DS = 0
 tokens_separator = ":"
 unchanged_column_idx = [1,3,4,5,6,7,8]
 
-
 clean_dataset_from_unuseful_spaces(DS_path, num_comments_in_DS, clened_DS_from_spaces_path)
 [outcome, string_data_value, string_new_data_value] = dataset_validation(new_DS_path, clened_DS_from_spaces_path, num_comments_in_clened_DS, tokens_separator, unchanged_column_idx)
 
