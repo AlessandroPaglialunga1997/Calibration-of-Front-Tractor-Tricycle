@@ -1,21 +1,28 @@
 from utilities import *
-from handle_dataset import *
+from file_handler import *
+from dataset_handler import *
+from decimal import Decimal
 
 # for this application used data are stored in 'new_DS_path' but they must be consistet
 # with the given dataset 'DS_path' otherwise data in 'new_DS_path' will be recomputed
 
-def dataset_validation(new_DS_path, DS_path, num_comments, separator):
+def dataset_validation(new_DS_path, DS_path, num_comments, separator, unchanged_column_idx):
     # read data from new_DS_path
     [num_infos_per_token_array, string_data_value] = read_DS(DS_path, num_comments, separator)
-    [outcome, new_data] = read_new_DS(new_DS_path)
-    if (outcome == False):
-        print("I didn't read correctly new dataset")
-        return [False, string_data_value]
+    [read_new_DS_outcome, string_new_data_value] = read_new_DS(new_DS_path)
+    if (read_new_DS_outcome == False):
+        return [False, string_data_value, None]
     else:
-        print("I read correctly new dataset")
-        # compare dataset
-        
-        return [True, string_data_value]
+        compare_subset_outcome = compare_matrices(string_data_value[:, unchanged_column_idx], string_new_data_value[:, unchanged_column_idx])
+        string_FIRST_TS = take_one_word_from_file(DS_path, num_comments, separator, 1, 0) 
+        FIRST_TS = Decimal(string_FIRST_TS)
+        translated_TS_array = take_column_from_file(new_DS_path, 0)
+        TS_validation_outcome = TS_validation(DS_path, num_comments, separator, translated_TS_array, FIRST_TS)
+        IncEncInfo_validation_outcome = True
+        if (compare_subset_outcome and TS_validation_outcome and IncEncInfo_validation_outcome):
+            return [True, string_data_value, string_new_data_value]
+        else:
+            return [False, string_data_value, None]
 
 def TS_validation(DS_path, num_comments, separator, translated_TS_array, FIRST_TS):
 	f = open(DS_path)
