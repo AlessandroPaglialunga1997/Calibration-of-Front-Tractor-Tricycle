@@ -17,7 +17,7 @@ def reset_TS(DS_path, num_comments, separator):
 	lines = f.read().splitlines()
 	translated_TS_array = []
 	time_sampling_array = []
-	for line_idx in range(num_comments+1, num_comments+2):#len(lines)):
+	for line_idx in range(num_comments, len(lines)):
 		cur_TS = float(take_one_word_from_line(lines[line_idx], separator, 1, 0))
 		[translated_cur_TS, time_sampling] = translate_TS_and_compute_time_sampling(cur_TS, FIRST_TS, pre_TS)
 		translated_TS_array.append(round(translated_cur_TS, num_decimals))

@@ -6,27 +6,21 @@ from decimal import Decimal
 # for this application used data are stored in 'new_DS_path' but they must be consistet
 # with the given dataset 'DS_path' otherwise data in 'new_DS_path' will be recomputed
 
-def dataset_validation(new_DS_path, DS_path, num_comments, separator, unchanged_column_idx):
-    # read data from new_DS_path
+def dataset_validation(new_DS_path, DS_path, num_comments, separator, unchanged_column_idx, string_new_data_value):
     [num_infos_per_token_array, string_data_value] = read_DS(DS_path, num_comments, separator)
-    [read_new_DS_outcome, string_new_data_value] = read_new_DS(new_DS_path)
-    if (read_new_DS_outcome == False):
-        return [False, string_data_value, None]
+    compare_subset_outcome = compare_matrices(string_data_value[:, unchanged_column_idx], string_new_data_value[:, unchanged_column_idx])
+    FIRST_TS = Decimal(take_one_word_from_file(DS_path, num_comments, separator, 1, 0))
+    translated_TS_array = take_column_from_file(new_DS_path, 0)
+    TS_array = take_column_from_file(DS_path, 1)
+    TS_validation_outcome = TS_validation(TS_array, translated_TS_array, FIRST_TS)
+    FIRST_IncEncInfo = int(take_one_word_from_file(DS_path, num_comments, separator, 2, 1))
+    translated_IncEncInfo_array = take_column_from_file(new_DS_path, 2)
+    IncEncInfo_array = take_column_from_file(DS_path, 4)
+    IncEncInfo_validation_outcome = IncEncInfo_validation(IncEncInfo_array, translated_IncEncInfo_array, FIRST_IncEncInfo)
+    if (compare_subset_outcome and TS_validation_outcome and IncEncInfo_validation_outcome):
+        return [True, string_data_value]
     else:
-        # compare_subset_outcome = compare_matrices(string_data_value[:, unchanged_column_idx], string_new_data_value[:, unchanged_column_idx])
-        compare_subset_outcome = True
-        FIRST_TS = Decimal(take_one_word_from_file(DS_path, num_comments, separator, 1, 0))
-        translated_TS_array = take_column_from_file(new_DS_path, 0)
-        TS_array = take_column_from_file(DS_path, 1)
-        TS_validation_outcome = TS_validation(TS_array, translated_TS_array, FIRST_TS)
-        FIRST_IncEncInfo = int(take_one_word_from_file(DS_path, num_comments, separator, 2, 1))
-        translated_IncEncInfo_array = take_column_from_file(new_DS_path, 2)
-        IncEncInfo_array = take_column_from_file(DS_path, 4)
-        IncEncInfo_validation_outcome = IncEncInfo_validation(IncEncInfo_array, translated_IncEncInfo_array, FIRST_IncEncInfo)
-        if (compare_subset_outcome and TS_validation_outcome and IncEncInfo_validation_outcome):
-            return [True, string_data_value, string_new_data_value]
-        else:
-            return [False, string_data_value, None]
+        return [False, string_data_value]
 
 def TS_validation(TS_array, translated_TS_array, FIRST_TS):
     for i in range(0, len(TS_array)):
