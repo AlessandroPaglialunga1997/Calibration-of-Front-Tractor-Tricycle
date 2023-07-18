@@ -65,32 +65,43 @@ def dimensions_sanity_checks(num_records, num_encoders, dim_robot_confg_space, d
     assert sensor_confg.shape[1] == dim_sensor_confg_space
 
 #--------------------------------------------------------------------------------------------
-def compute_trajectory(initial_state, parameters, sensor_confg):
+
+def compute_front_trajectory(initial_state, parameters, encoders_values, robot_confg):
     trajectory = []
     trajectory.append(initial_state)
     curr_state = initial_state
-    for i in range(1, len(sensor_confg)):
-        delta_inc_enc = sensor_confg[i, 1] - sensor_confg[i-1, 1]
-        #print([sensor_confg[i, 1], sensor_confg[i-1, 1], delta_inc_enc, i])
-        curr_abs_enc = sensor_confg[i, 0]
-        next_state = prediction(parameters, curr_state, delta_inc_enc, curr_abs_enc)
+    for i in range(1, len(encoders_values)):
+        delta_inc_enc = encoders_values[i, 1] - encoders_values[i-1, 1]
+        curr_abs_enc = encoders_values[i, 0]
+        next_state = prediction(parameters, curr_state, delta_inc_enc, curr_abs_enc, robot_confg[i, :])
         trajectory.append(next_state)
         curr_state = next_state
     return np.array(trajectory)
 
 #--------------------------------------------------------------------------------------------
 
-def prediction(parameters, curr_state, delta_inc_enc, curr_abs_enc):
+def prediction(parameters, curr_state, delta_inc_enc, curr_abs_enc, next_state):
     Ks, Kt, axis_length, steer_off = [parameters[0], parameters[1], parameters[2], parameters[3]]
     curr_theta, curr_phi = [curr_state[2], curr_state[3]]
     cos_theta_phi = math.cos(curr_theta + curr_phi)
     sin_theta_phi = math.sin(curr_theta + curr_phi)
     sin_phi = math.sin(curr_phi)
-    new_x = curr_state[0] + cos_theta_phi*Kt*delta_inc_enc
-    new_y = curr_state[1] + sin_theta_phi*Kt*delta_inc_enc
+    cos_theta = math.cos(curr_theta)
+    sin_theta = math.sin(curr_theta)
+    new_x = curr_state[0] + cos_theta*Kt*delta_inc_enc #curr_state[0] + cos_theta_phi*Kt*delta_inc_enc 
+    new_y = curr_state[1] + sin_theta*Kt*delta_inc_enc #curr_state[1] + sin_theta_phi*Kt*delta_inc_enc
     new_theta = curr_state[2] + sin_phi*Kt*delta_inc_enc/axis_length
-    new_phi = math.pi*Ks*curr_abs_enc/180 - math.pi*steer_off/180
+    new_phi = Ks*curr_abs_enc - new_theta - math.pi*steer_off/180
     return np.array([new_x, new_y, new_theta, new_phi])
+
+#--------------------------------------------------------------------------------------------
+
+def compute_rear_trajectory(front_trajectory, axis_length):
+    num_points = len(front_trajectory)
+    all_x = np.reshape(front_trajectory[:, 0] - axis_length * np.cos(front_trajectory[:, 2]), (num_points,1))
+    all_y = np.reshape(front_trajectory[:, 1] - axis_length * np.sin(front_trajectory[:, 2]), (num_points,1))
+    rear_trajectory = np.concatenate((all_x, all_y), axis=1)
+    return rear_trajectory
 
 #--------------------------------------------------------------------------------------------
 
@@ -106,14 +117,16 @@ consistent_dataset_path = "Datasets/consistent_dataset.txt"
 
 [num_records, timestamp, encoders_values, robot_confg, sensor_confg] = read_from_consistent_dataset(consistent_dataset_path, info_separator, timestamp_name, encoders_values_name, robot_confg_name, sensor_confg_name)
 dimensions_sanity_checks(num_records, num_encoders, dim_robot_confg_space, dim_sensor_confg_space, timestamp, encoders_values, robot_confg, sensor_confg)
-initial_guess = np.array([360/8192, 0.0106141, 1.4, 0]) #[Ksteer, Ktraction, axis_length, steer_offset]
-initial_x = 0
-initial_y = 0
+initial_guess = np.array([math.pi*2/8192, 0.00000212229, 8, 0]) #[Ksteer, Ktraction, axis_length, steer_offset] 2*290*180/8192
+initial_front_x = 0
+initial_front_y = 0
 initial_theta = 0
-initial_phi = math.pi*initial_guess[0]*sensor_confg[0,0]/180 - math.pi*initial_guess[3]/180
-initial_robot_confg = np.array([initial_x, initial_y, initial_theta, initial_phi])
-trajectory = compute_trajectory(initial_robot_confg, initial_guess, encoders_values)
+initial_phi = initial_guess[0]*encoders_values[0,0] - initial_theta - math.pi*initial_guess[3]/180
+initial_front_robot_confg = np.array([initial_front_x, initial_front_y, initial_theta, initial_phi])
+rear_trajectory = compute_front_trajectory(initial_front_robot_confg, initial_guess, encoders_values, robot_confg)
+#rear_trajectory = compute_rear_trajectory(front_trajectory, initial_guess[2])
 
-plt.plot(trajectory[:, 0], trajectory[:, 1])
-plt.plot(robot_confg[:, 0], robot_confg[:, 1])
+num_point = -1
+plt.plot(rear_trajectory[:num_point, 0], rear_trajectory[:num_point, 1])
+plt.plot(robot_confg[:num_point, 0], robot_confg[:num_point, 1])
 plt.show()
