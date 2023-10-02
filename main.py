@@ -19,11 +19,11 @@ import matplotlib.pyplot as plt
 
 #--------------------------------------------------------------------------------------------
 
-def read_from_consistent_dataset(consistent_dataset_path, info_separator, timestamp_name, encoders_values_name, robot_confg_name, sensor_confg_name):
+def read_from_consistent_dataset(consistent_dataset_path, info_separator, timestamp_name, encoders_values_name, robot_confg_name, laser_confg_name):
     timestamp = []
     encoders_values = []
     robot_confg = []
-    sensor_confg = []
+    laser_confg = []
     consistent_dataset_file = open(consistent_dataset_path)
     all_lines = consistent_dataset_file.read().splitlines()
     num_records = len(all_lines)
@@ -44,25 +44,25 @@ def read_from_consistent_dataset(consistent_dataset_path, info_separator, timest
                 theta = float(all_tokens[index_token + 3])
                 curr_robot_confg_np = np.array([x, y, theta])
                 robot_confg.append(curr_robot_confg_np)
-            elif token.lower() == sensor_confg_name + info_separator:
+            elif token.lower() == laser_confg_name + info_separator:
                 x = float(all_tokens[index_token + 1])
                 y = float(all_tokens[index_token + 2])
                 theta = float(all_tokens[index_token + 3])
-                curr_sensor_confg_np = np.array([x, y, theta])
-                sensor_confg.append(curr_sensor_confg_np)
+                curr_laser_confg_np = np.array([x, y, theta])
+                laser_confg.append(curr_laser_confg_np)
             index_token += 1
-    return [num_records, np.array(timestamp), np.array(encoders_values), np.array(robot_confg), np.array(sensor_confg)]
+    return [num_records, np.array(timestamp), np.array(encoders_values), np.array(robot_confg), np.array(laser_confg)]
 
 #--------------------------------------------------------------------------------------------
 
-def dimensions_sanity_checks(num_records, num_encoders, dim_robot_confg_space, dim_sensor_confg_space, timestamp, encoders_values, robot_confg, sensor_confg):
+def dimensions_sanity_checks(num_records, num_encoders, dim_robot_confg_space, dim_laser_confg_space, timestamp, encoders_values, robot_confg, laser_confg):
     assert timestamp.shape[0] == num_records
     assert encoders_values.shape[0] == num_records
     assert encoders_values.shape[1] == num_encoders
     assert robot_confg.shape[0] == num_records
     assert robot_confg.shape[1] == dim_robot_confg_space
-    assert sensor_confg.shape[0] == num_records
-    assert sensor_confg.shape[1] == dim_sensor_confg_space
+    assert laser_confg.shape[0] == num_records
+    assert laser_confg.shape[1] == dim_laser_confg_space
 
 #--------------------------------------------------------------------------------------------
 
@@ -91,9 +91,9 @@ def next_robot_confg_prediction(kinematic_paramter, curr_state, delta_inc_enc, n
     new_y = curr_y + sin_theta*Kt*delta_inc_enc/max_INC_enc_value
     new_theta = wrap_angles(curr_theta + sin_phi*Kt*delta_inc_enc/(max_INC_enc_value*axis_length))
     if new_abs_enc < max_ABS_enc_value/2:
-        new_phi = (new_abs_enc*Ks)/(max_ABS_enc_value-1) - steer_off
+        new_phi = (new_abs_enc*Ks)/(max_ABS_enc_value/(2*math.pi)) - steer_off
     else:
-        new_phi = -(max_ABS_enc_value-new_abs_enc)*Ks/(max_ABS_enc_value-1) + steer_off
+        new_phi = -(max_ABS_enc_value-new_abs_enc)*Ks/(max_ABS_enc_value/(2*math.pi)) + steer_off
     new_phi = wrap_angles(new_phi)
     return np.array([new_x, new_y, new_theta, new_phi])
 
@@ -108,47 +108,32 @@ def wrap_angles(angle):
 
 #--------------------------------------------------------------------------------------------
 
-def compute_sensor_trajectory(laser_translation_wrt_baselink, robot_trajectory):
-    trajectory = []
-    for i in range(0, len(robot_trajectory)):
-        theta = robot_trajectory[i, 2]
-        sin = math.sin(theta)
-        cos = math.cos(theta)
-        Rz = np.array([[cos, -sin], [sin, cos]])
-        a = np.reshape(laser_translation_wrt_baselink[0:2], (2,1))
-        b = np.reshape(np.matmul(Rz, a), (1,2))
-        trajectory.append(robot_trajectory[i, 0:2] + b)
-    trajectory = np.reshape(trajectory, (2434, 2))
-    return trajectory
+def t2v(transformation):
+    vector = np.zeros((1,3))
+    vector[0, 0:2] = transformation[0:2,2]
+    vector[0, 2] = math.atan2(transformation[1,0], transformation[0,0])
+    return vector
 
 #--------------------------------------------------------------------------------------------
 
-def sensor_trajectory_by_odom(laser_translation_wrt_baselink, robot_trajectory, sensor_odometry):
-    trajectory_by_odometry = []
-    trajectory_by_odometry.append(laser_translation_wrt_baselink[0:2].tolist())
-    for i in range(1, len(robot_trajectory)):
-        sensor_theta = sensor_odometry[i, 2]
-        sin = math.sin(sensor_theta)
-        cos = math.cos(sensor_theta)
-        Rz = np.array([[cos, -sin], [sin, cos]])
-        a = np.reshape(sensor_odometry[i, 0:2] - sensor_odometry[i-1, 0:2], (2,1))
-        b = np.reshape(np.matmul(Rz, a), (1,2))
-        c = np.reshape(robot_trajectory[i, 0:2] + laser_translation_wrt_baselink[0:2] + b, (2))
-        trajectory_by_odometry.append(c.tolist())
-    trajectory_by_odometry = np.array(trajectory_by_odometry)
-    return trajectory_by_odometry
+def v2t(vector):
+    cos = math.cos(vector[2])
+    sin = math.sin(vector[2])
+    transformation = np.array([[cos, -sin, vector[0]],[sin, cos, vector[1]],[0, 0, 1]])
+    return transformation
 
 #--------------------------------------------------------------------------------------------
 
-def prova(laser_translation_wrt_baselink, robot_trajectory, sensor_odometry):
-    trajectory_by_odometry = []
-    trajectory_by_odometry.append(laser_translation_wrt_baselink[0:2].tolist())
-    for i in range(1, len(robot_trajectory)):
-        b = np.reshape(sensor_odometry[i, 0:2] - sensor_odometry[i-1, 0:2], (1,2))
-        c = np.reshape(robot_trajectory[i, 0:2] + laser_translation_wrt_baselink[0:2] + b, (2))
-        trajectory_by_odometry.append(c.tolist())
-    trajectory_by_odometry = np.array(trajectory_by_odometry)
-    return trajectory_by_odometry
+def compute_robot_odometry(laser_odometry, T_off, T_off_inverse):
+    robot_odometry = []
+    for i in range(len(laser_odometry)):
+        T_L = v2t(laser_odometry[i, :])
+        T_R = np.matmul(T_off_inverse, np.matmul(T_L, T_off))
+        odom_R = t2v(T_R)
+        robot_odometry.append(odom_R)
+    robot_odometry = np.array(robot_odometry)
+    robot_odometry = np.squeeze(robot_odometry, axis=1)
+    return robot_odometry
 
 #--------------------------------------------------------------------------------------------
 
@@ -159,28 +144,33 @@ num_encoders = 2
 max_enc_values = [8192, 5000] #[max_INC_enc_value, max_ABS_enc_value]
 robot_confg_name = "model_pose"
 dim_robot_confg_space = 3
-sensor_confg_name = "tracker_pose"
-dim_sensor_confg_space = 3
+laser_confg_name = "tracker_pose"
+dim_laser_confg_space = 3
 consistent_dataset_path = "Datasets/consistent_dataset.txt"
 
-[num_records, timestamp, encoders_values, robot_trajectory, sensor_odometry] = read_from_consistent_dataset(consistent_dataset_path, info_separator, timestamp_name, encoders_values_name, robot_confg_name, sensor_confg_name)
+[num_records, timestamp, encoders_values, robot_odometry_with_initial_guess, laser_odometry] = read_from_consistent_dataset(consistent_dataset_path, info_separator, timestamp_name, encoders_values_name, robot_confg_name, laser_confg_name)
 
-dimensions_sanity_checks(num_records, num_encoders, dim_robot_confg_space, dim_sensor_confg_space, timestamp, encoders_values, robot_trajectory, sensor_odometry)
+dimensions_sanity_checks(num_records, num_encoders, dim_robot_confg_space, dim_laser_confg_space, timestamp, encoders_values, robot_odometry_with_initial_guess, laser_odometry)
+
 kinematic_paramter = np.array([0.564107, 0.0106141, 1.54757, -0.0559079]) #[Ks, Kt, axis_length, steer_off]
+#kinematic_paramter = np.array([0.1, 0.0106141, 1.4, 0]) #[Ks, Kt, axis_length, steer_off]
+
 initial_robot_confg = np.array([0, 0, 0, 0]) #[x, y, theta, phi]
 
-# rear_trajectory = compute_robot_trajectory(initial_robot_confg, kinematic_paramter, encoders_values, max_enc_values)
-# num_point = -1
-# plt.plot(rear_trajectory[:num_point, 0], rear_trajectory[:num_point, 1])
-# plt.plot(robot_trajectory[:num_point, 0], robot_trajectory[:num_point, 1])
-# plt.show()
+laser_pos_wrt_robot = np.array([1.81022, -0.0228018, 0])
+laser_rotation_wrt_robot =  np.array([0, 0, -0.00108296, 0.999999])
 
-laser_translation_wrt_baselink = np.array([ 1.81022, -0.0228018, 0 ])
-laser_rotation_wrt_baselink = np.array([ 0, 0, -0.00108296, 0.999999 ])
-initial_sensor_confg = np.array([0, 0, 0, 0])
-sensor_trajectory = compute_sensor_trajectory(laser_translation_wrt_baselink, robot_trajectory)
+T_off = v2t(np.array([laser_pos_wrt_robot[0], laser_pos_wrt_robot[1],  laser_rotation_wrt_robot[2]]))
+T_off_inverse = v2t(np.array([-laser_pos_wrt_robot[0], -laser_pos_wrt_robot[1], -laser_rotation_wrt_robot[2]]))
 
-num_point = -1
-plt.plot(sensor_trajectory[:num_point, 0], sensor_trajectory[:num_point, 1])
-plt.plot(robot_trajectory[:num_point, 0], robot_trajectory[:num_point, 1])
+true_robot_odometry = compute_robot_odometry(laser_odometry, T_off, T_off_inverse)
+
+robot_odometry = compute_robot_odometry(laser_odometry, T_off, T_off_inverse)
+predicted_robot_odometry = compute_robot_trajectory(initial_robot_confg, kinematic_paramter, encoders_values, max_enc_values)
+
+num_points = -1
+#plt.plot(laser_odometry[0:num_points, 0], laser_odometry[0:num_points, 1])
+#plt.plot(robot_odometry_with_initial_guess[0:num_points, 0], robot_odometry_with_initial_guess[0:num_points, 1])
+plt.plot(predicted_robot_odometry[0:num_points, 0], predicted_robot_odometry[0:num_points, 1])
+plt.plot(true_robot_odometry[0:num_points, 0], true_robot_odometry[0:num_points, 1])
 plt.show()
