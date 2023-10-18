@@ -89,11 +89,12 @@ def next_robot_confg_prediction(kinematic_paramter, curr_state, delta_inc_enc, n
     sin_theta = math.sin(curr_theta)
     new_x = curr_x + cos_theta*Kt*delta_inc_enc/max_INC_enc_value 
     new_y = curr_y + sin_theta*Kt*delta_inc_enc/max_INC_enc_value
-    new_theta = wrap_angles(curr_theta + sin_phi*Kt*delta_inc_enc/(max_INC_enc_value*axis_length))
+    new_theta = curr_theta + sin_phi*Kt*delta_inc_enc/(max_INC_enc_value*axis_length)
     if new_abs_enc < max_ABS_enc_value/2:
         new_phi = (new_abs_enc*Ks)/(max_ABS_enc_value/(2*math.pi)) - steer_off
     else:
         new_phi = -(max_ABS_enc_value-new_abs_enc)*Ks/(max_ABS_enc_value/(2*math.pi)) + steer_off
+    
     new_phi = wrap_angles(new_phi)
     return np.array([new_x, new_y, new_theta, new_phi])
 
@@ -152,8 +153,8 @@ consistent_dataset_path = "Datasets/consistent_dataset.txt"
 
 dimensions_sanity_checks(num_records, num_encoders, dim_robot_confg_space, dim_laser_confg_space, timestamp, encoders_values, robot_odometry_with_initial_guess, laser_odometry)
 
-kinematic_paramter = np.array([0.564107, 0.0106141, 1.54757, -0.0559079]) #[Ks, Kt, axis_length, steer_off]
-#kinematic_paramter = np.array([0.1, 0.0106141, 1.4, 0]) #[Ks, Kt, axis_length, steer_off]
+#kinematic_paramter = np.array([0.564107, 0.0106141, 1.54757, -0.0559079]) #[Ks, Kt, axis_length, steer_off]
+kinematic_paramter = np.array([0.1, 0.0106141, 1.4, 0]) #[Ks, Kt, axis_length, steer_off]
 
 initial_robot_confg = np.array([0, 0, 0, 0]) #[x, y, theta, phi]
 
@@ -169,8 +170,8 @@ robot_odometry = compute_robot_odometry(laser_odometry, T_off, T_off_inverse)
 predicted_robot_odometry = compute_robot_trajectory(initial_robot_confg, kinematic_paramter, encoders_values, max_enc_values)
 
 num_points = -1
-#plt.plot(laser_odometry[0:num_points, 0], laser_odometry[0:num_points, 1])
+plt.plot(laser_odometry[0:num_points, 0], laser_odometry[0:num_points, 1])
 #plt.plot(robot_odometry_with_initial_guess[0:num_points, 0], robot_odometry_with_initial_guess[0:num_points, 1])
-plt.plot(predicted_robot_odometry[0:num_points, 0], predicted_robot_odometry[0:num_points, 1])
+#plt.plot(predicted_robot_odometry[0:num_points, 0], predicted_robot_odometry[0:num_points, 1])
 plt.plot(true_robot_odometry[0:num_points, 0], true_robot_odometry[0:num_points, 1])
 plt.show()

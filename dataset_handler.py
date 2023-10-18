@@ -5,7 +5,7 @@ def remove_unnecessary_comments_and_spaces(old_dataset_path, #original dataset
                                            new_dataset_path, #dataset without comments and unnecessary spaces
                                            comment_symbol): #if a line starts with this symbol then it is a comment
     old_dataset_file = open(old_dataset_path) # open the original dataset file
-    new_dataset_file = open(new_dataset_path,'w') # open or create a new (cleaned) dataset file
+    new_dataset_file = open(new_dataset_path,'w') # open or create a new (clean) dataset file
     all_lines = old_dataset_file.read().splitlines()
     for line in all_lines: #check whether a line is a comment or contains unnecessary spaces
         if line[0] == comment_symbol: #I assume that in the case where a line was a comment then the first character would be the comment symbol
@@ -19,13 +19,13 @@ def remove_unnecessary_comments_and_spaces(old_dataset_path, #original dataset
                 else:
                     new_line = new_line + token + " " #cat
             new_line = new_line[:-1] #remove last space added
-            new_dataset_file.write(new_line +'\n') #append new line in the new (cleaned) dataset
+            new_dataset_file.write(new_line +'\n') #append new line in the new (clean) dataset
 
 #----------------------------------------------------------------------------------------------------
 # Make the dataset consistent by resetting the timestamp and incremental 
 # encoder value from first record (considering variable overflow) [inc_enc = Incremental Encoder]
 
-def make_dataset_consistent(old_dataset_path, #cleaned dataset
+def make_dataset_consistent(old_dataset_path, #clean dataset
                             new_dataset_path, #consistent dataset path
                             info_separator, #each vector (info) is preceded by a name and a separator (e.g. time: ':' is the separator)
                             timestamp_name,
