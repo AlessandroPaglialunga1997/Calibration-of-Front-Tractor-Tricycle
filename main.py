@@ -66,20 +66,46 @@ def dimensions_sanity_checks(num_records, num_encoders, dim_robot_confg_space, d
 
 #--------------------------------------------------------------------------------------------
 
-def compute_robot_trajectory(initial_confg, kinematic_paramter, encoders_values, max_enc_values):
+def compute_laser_trajectory(initial_confg, kinematic_paramter, encoders_values, max_enc_values):
+    #plotta traiettoria centro cinematico
+    #dalla traiattoria trova il laser T_off*T_R*T_off_inverse
     trajectory = []
-    trajectory.append(initial_confg)
+    # angle = initial_confg[2]
+    # rotation_matrix = np.array([[np.cos(angle), -np.sin(angle)],[np.sin(angle), np.cos(angle)]])
+    # vector = [laser_pos_wrt_robot[0]-kinematic_paramter[2], laser_pos_wrt_robot[1]]
+    # rotated_vector = np.dot(rotation_matrix, vector)
+    # a = initial_confg + np.array([rotated_vector[0], rotated_vector[1], 0, 0])
+    # T_R = v2t([initial_confg[0], initial_confg[1], initial_confg[2]]) 
+    # b = np.matmul(T_off, T_R)
+    # c = t2v(b)
+    # trajectory.append(np.array([c[0,0], c[0,1], 0, 0])) 
+    trajectory.append(np.array([initial_confg[0]-kinematic_paramter[2], initial_confg[1], initial_confg[2], initial_confg[3]])) 
     curr_confg = initial_confg
     for i in range(1, len(encoders_values)):
         delta_inc_enc = encoders_values[i, 1] - encoders_values[i-1, 1]
-        #next_confg = next_robot_confg_prediction(kinematic_paramter, curr_confg, delta_inc_enc, new_abs_enc, max_enc_values)
         delta_confg = delta_confg_prediction(curr_confg, kinematic_paramter, delta_inc_enc, max_enc_values[1])
         next_confg = curr_confg + delta_confg # delta_confg * delta_time is omitted
-        L = kinematic_paramter[2]
-        new_theta = next_confg[2]
         new_psi = new_psi_from_abs_enc(encoders_values[i, 0], max_enc_values[0], kinematic_paramter)
         next_confg[3] = new_psi
-        trajectory.append(next_confg)
+        
+        # new_theta = next_confg[2]
+        # rotation_matrix = np.array([[np.cos(angle), -np.sin(angle)],[np.sin(angle), np.cos(angle)]])
+        # laser_offset = [laser_pos_wrt_robot[0]-kinematic_paramter[2], laser_pos_wrt_robot[1]]
+        # rotated_laser_offset = np.dot(rotation_matrix, laser_offset)
+
+        # curr_laser_pos_wrt_robot = next_confg + np.array([rotated_laser_offset[0], rotated_laser_offset[1], 0, 0])
+        # T_R = v2t([next_confg[0], next_confg[1], angle]) 
+        # b = np.matmul(T_off, T_R)
+        # c = t2v(b)
+        # trajectory.append(np.array([c[0,0], c[0,1], 0, 0]))
+        x_rear = next_confg[0] - kinematic_paramter[2]*math.cos(next_confg[2])
+        y_rear = next_confg[1] - kinematic_paramter[2]*math.sin(next_confg[2])
+        T_R = v2t([x_rear, y_rear, next_confg[2]])
+        T_L = np.matmul(T_off, np.matmul(T_R, T_off_inverse))
+        spero = t2v(T_L)
+        x_laser = spero[0,0] * math.cos(-0.00108296) - spero[0,1] * math.sin(-0.00108296)
+        y_laser = spero[0,0] * math.sin(-0.00108296) + spero[0,1] * math.cos(-0.00108296)
+        trajectory.append(np.array([x_laser, y_laser, 0, 0]))
         curr_confg = next_confg
     return np.array(trajectory)
 
@@ -92,7 +118,9 @@ def delta_confg_prediction(curr_confg, kinematic_paramter, delta_inc_enc, max_IN
     v = kt * delta_inc_enc / (max_INC_enc_value-1) # delta_inc_enc / delta_time is omitted
 
     x_dot = v * math.cos(theta+psi)
+
     y_dot = v * math.sin(theta+psi)
+
     theta_dot = (v / L) * math.sin(psi)
 
     return np.array([x_dot, y_dot, theta_dot, 0])
@@ -102,40 +130,9 @@ def delta_confg_prediction(curr_confg, kinematic_paramter, delta_inc_enc, max_IN
 def new_psi_from_abs_enc(final_abs_enc, max_ABS_enc_value, kinematic_paramter):  
     ks, steer_off = [kinematic_paramter[0], kinematic_paramter[3]]
     if final_abs_enc > max_ABS_enc_value/2:
-        return - ks * (max_ABS_enc_value - final_abs_enc)*math.pi/(max_ABS_enc_value/2) + steer_off
+        return - (ks * (max_ABS_enc_value - final_abs_enc)*math.pi/(max_ABS_enc_value/2)) + steer_off
     else:
-        return ks * final_abs_enc * math.pi / (max_ABS_enc_value/2) + steer_off
-
-
-#--------------------------------------------------------------------------------------------
-
-def next_robot_confg_prediction(kinematic_paramter, curr_state, delta_inc_enc, new_abs_enc, max_enc_values):
-    Ks, Kt, axis_length, steer_off = [kinematic_paramter[0], kinematic_paramter[1], kinematic_paramter[2], kinematic_paramter[3]]
-    curr_x, curr_y, curr_theta, curr_phi = [curr_state[0], curr_state[1], curr_state[2], curr_state[3]]
-    max_ABS_enc_value, max_INC_enc_value = [max_enc_values[0], max_enc_values[1]]
-    sin_phi = math.sin(curr_phi)
-    cos_theta = math.cos(curr_theta)
-    sin_theta = math.sin(curr_theta)
-    new_x = curr_x + cos_theta*Kt*delta_inc_enc/max_INC_enc_value 
-    new_y = curr_y + sin_theta*Kt*delta_inc_enc/max_INC_enc_value
-    new_theta = curr_theta + sin_phi*Kt*delta_inc_enc/(max_INC_enc_value*axis_length)
-    if new_abs_enc < max_ABS_enc_value/2:
-        new_phi = (new_abs_enc*Ks)/(max_ABS_enc_value/(2*math.pi)) - steer_off
-    else:
-        new_phi = -(max_ABS_enc_value-new_abs_enc)*Ks/(max_ABS_enc_value/(2*math.pi)) + steer_off
-    
-    new_phi = wrap_angles(new_phi)
-    return np.array([new_x, new_y, new_theta, new_phi])
-
-#--------------------------------------------------------------------------------------------
-
-def wrap_angles(angle):
-    if (angle > 0 and angle < math.pi) or (angle < 0 and angle > -math.pi):
-        return angle
-    else:
-        cycles = int(angle/math.pi)
-        return angle - cycles*math.pi
-
+        return (ks * final_abs_enc * math.pi / (max_ABS_enc_value/2)) + steer_off
 #--------------------------------------------------------------------------------------------
 
 def t2v(transformation):
@@ -151,32 +148,6 @@ def v2t(vector):
     sin = math.sin(vector[2])
     transformation = np.array([[cos, -sin, vector[0]],[sin, cos, vector[1]],[0, 0, 1]])
     return transformation
-
-#--------------------------------------------------------------------------------------------
-
-def compute_robot_odometry(laser_odometry, T_off, T_off_inverse):
-    robot_odometry = []
-    for i in range(len(laser_odometry)):
-        T_L = v2t(laser_odometry[i, :])
-        T_R = np.matmul(T_off_inverse, np.matmul(T_L, T_off))
-        odom_R = t2v(T_R)
-        robot_odometry.append(odom_R)
-    robot_odometry = np.array(robot_odometry)
-    robot_odometry = np.squeeze(robot_odometry, axis=1)
-    return robot_odometry
-
-#--------------------------------------------------------------------------------------------
-
-def compute_laser_odometry(robot_odometry, T_off, T_off_inverse):
-    predicted_laser_odometry = []
-    for i in range(len(robot_odometry)):
-        T_R = v2t(robot_odometry[i, 0:3])
-        T_L = np.matmul(T_off, np.matmul(T_R, T_off_inverse))
-        odom_L = t2v(T_L)
-        predicted_laser_odometry.append(odom_L)
-    predicted_laser_odometry = np.array(predicted_laser_odometry)
-    predicted_laser_odometry = np.squeeze(predicted_laser_odometry, axis=1)
-    return predicted_laser_odometry
 
 #--------------------------------------------------------------------------------------------
 
@@ -206,21 +177,14 @@ from_robot_to_laser = v2t(np.array([laser_pos_wrt_robot[0], laser_pos_wrt_robot[
 
 from_laser_to_robot = np.linalg.inv(from_robot_to_laser)
 robot_pos_wrt_laser = np.array([-1.81022, 0.0228018, 0])
-robot_rotation_wrt_laser =  np.array([0, 0, 0.00108296, 0.999999]) ## ADD ##
+robot_rotation_wrt_laser =  np.array([0, 0, -0.00108296, 0.999999]) ## ADD ##
 
 T_off = v2t(np.array([robot_pos_wrt_laser[0], robot_pos_wrt_laser[1],  robot_rotation_wrt_laser[2]]))
 T_off_inverse = v2t(np.array([-robot_pos_wrt_laser[0], -robot_pos_wrt_laser[1], -robot_rotation_wrt_laser[2]]))
 
-true_robot_odometry = compute_robot_odometry(laser_odometry, T_off, T_off_inverse)
-
-predicted_robot_odometry = compute_robot_trajectory(initial_robot_confg, kinematic_paramter, encoders_values, max_enc_values)
-
-predicted_laser_odometry = compute_laser_odometry(predicted_robot_odometry, T_off, T_off_inverse)
+predicted_laser_odometry = compute_laser_trajectory(initial_robot_confg, kinematic_paramter, encoders_values, max_enc_values)
 
 num_points = -1
 plt.plot(laser_odometry[0:num_points, 0], laser_odometry[0:num_points, 1])
-# plt.plot(robot_odometry_with_initial_guess[0:num_points, 0], robot_odometry_with_initial_guess[0:num_points, 1])
-plt.plot(predicted_robot_odometry[0:num_points, 0], predicted_robot_odometry[0:num_points, 1])
-#plt.plot(predicted_laser_odometry[0:num_points, 0], predicted_laser_odometry[0:num_points, 1])
-#plt.plot(true_robot_odometry[0:num_points, 0], true_robot_odometry[0:num_points, 1])
+plt.plot(predicted_laser_odometry[0:num_points, 0], predicted_laser_odometry[0:num_points, 1])
 plt.show()
