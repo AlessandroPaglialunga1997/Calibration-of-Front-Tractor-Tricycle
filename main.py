@@ -72,17 +72,16 @@ def ls_calibrate_odometry_2(measurements, front_trajectory, kinematic_parameter,
     Z = []
     Pred = []
     Errors = []
-    for i in range(28, 28+10):#len(measurements)):
+    for i in range(28, 50):#len(measurements)):
         delta_inc_enc = encoders_values[i, 1] - encoders_values[i-1, 1]
         z = np.zeros((3))
         z[0:2] = measurements[i,0:2] - measurements[i-1,0:2]
         z[2] = difference_btw_angles(measurements[i,2], measurements[i-1,2])
         Z.append(z)
-        #pred = prediction_2(kinematic_parameter[2], front_trajectory[i-1, :], front_trajectory[i, :])
         pred = prediction_3(kinematic_parameter, front_trajectory[i-1, :], delta_inc_enc, encoders_values[i-1:i+1, 0], max_enc_values)
         Pred.append(pred)
         error = np.zeros((3, 1))
-        error[0:2, 0] = -pred[0:2] + z[0:2] 
+        error[0:2, 0] = pred[0:2] - z[0:2] 
         error[2, 0] = difference_btw_angles(pred[2], z[2])
         Errors.append(error)
         J = Jacobian_2(kinematic_parameter, front_trajectory[i-1, :], delta_inc_enc, encoders_values[i-1:i+1, 0], max_enc_values)
@@ -90,9 +89,6 @@ def ls_calibrate_odometry_2(measurements, front_trajectory, kinematic_parameter,
         b += np.matmul(np.transpose(J), error)
     dx = np.zeros((4,1))
     dx = -np.matmul(np.linalg.pinv(H), b)
-    print(b)
-    print(H)
-    print(dx)
     return np.array(Z), np.array(Pred), np.array(Errors), kinematic_parameter + np.reshape(dx, (4))
 
 #--------------------------------------------------------------------------------------------
@@ -144,6 +140,8 @@ def Jacobian_2(kinematic_parameter, curr_front_confg, delta_inc_enc, abs_enc_val
         second_delta_laser = prediction_3(kinematic_parameter-dx, curr_front_confg, delta_inc_enc, abs_enc_values, max_enc_values)
         J[0:2, i] = first_delta_laser[0:2]-second_delta_laser[0:2]
         J[2, i] = difference_btw_angles(first_delta_laser[2], second_delta_laser[2])
+        if i == 2 or i == 3:
+            J[:, i] *= -1     
         dx[i] = 0
     J *= 0.5/epsilon
     return J
@@ -167,6 +165,7 @@ def ls_calibrate_odometry(start_idx, kinematic_parameter, measurements, front_tr
     return kinematic_parameter + np.reshape(dx, (4))
 
 #--------------------------------------------------------------------------------------------
+
 def laser_prediction(curr_front_confg, kinematic_parameter, delta_inc_enc, abs_enc_value, max_enc_values):
     theta = curr_front_confg[2]
     kt, L = [kinematic_parameter[1], kinematic_parameter[2]]
@@ -181,6 +180,8 @@ def laser_prediction(curr_front_confg, kinematic_parameter, delta_inc_enc, abs_e
     delta_laser = t2v(delta_T_laser)
 
     return delta_laser[0:2]
+
+#--------------------------------------------------------------------------------------------
 
 def Jacobian(curr_front_confg, kinematic_parameter, delta_inc_enc, abs_enc_value, max_enc_values):
     J = np.zeros((2, 4))
@@ -269,6 +270,7 @@ def new_psi_from_abs_enc(final_abs_enc, max_ABS_enc_value, kinematic_parameter):
         return - (ks * (max_ABS_enc_value - final_abs_enc)*math.pi/(max_ABS_enc_value/2)) + steer_off
     else:
         return (ks * final_abs_enc * math.pi / (max_ABS_enc_value/2)) + steer_off
+
 #--------------------------------------------------------------------------------------------
 
 def t2v(transformation):
@@ -284,6 +286,26 @@ def v2t(vector):
     sin = math.sin(vector[2])
     transformation = np.array([[cos, -sin, vector[0]],[sin, cos, vector[1]],[0, 0, 1]])
     return np.array(transformation)
+
+#--------------------------------------------------------------------------------------------
+
+def ls_calibrate_odometry_3(kinematic_parameters, measurements, predicted_laser_odometry, init_front_confg, encoders_values, max_enc_values):
+    H = np.zeros((4,4))
+    b = np.zeros((4,1))
+    error_array = []
+    z_array = []
+    h_x_array = []
+    for i in range(0, len(measurements)):
+        error = np.zeros((3,1))
+        h_x = predicted_laser_odometry[i, :]
+        h_x_array.append(h_x)
+        z = measurements[i, :]
+        z_array.append(z)
+        error[0:2, 0] = h_x[0:2] - z[0:2] 
+        error[2, 0] = difference_btw_angles(h_x[2], z[2])
+        error_array.append(error)
+    return np.array(h_x_array), np.array(z_array), np.array(error_array)
+
 
 #--------------------------------------------------------------------------------------------
 
@@ -306,8 +328,8 @@ consistent_dataset_path = "Datasets/consistent_dataset.txt"
 dimensions_sanity_checks(num_records, num_encoders, dim_robot_confg_space, dim_laser_confg_space, timestamp, encoders_values, robot_odometry_with_initial_guess, laser_odometry)
 
 # initialize the kinematic parameters
-#kinematic_parameter = np.array([0.564107, 0.0106141, 1.54757, -0.0559079]) #[Ks, Kt, axis_length, steer_off]
-kinematic_parameter = np.array([0.1, 0.0106141, 1.4, 0]) #[Ks, Kt, axis_length, steer_off]
+kinematic_parameters = np.array([0.564107, 0.0106141, 1.54757, -0.0559079]) #[Ks, Kt, axis_length, steer_off]
+#kinematic_parameters = np.array([0.1, 0.0106141, 1.4, 0]) #[Ks, Kt, axis_length, steer_off]
 
 # set the laser pose w.r.t robot reference frame
 laser_pos_wrt_robot = np.array([1.81022, -0.0228018, 0])
@@ -317,34 +339,24 @@ T_off = v2t(np.array([-laser_pos_wrt_robot[0], -laser_pos_wrt_robot[1],  -laser_
 T_off_inverse = v2t(np.array([laser_pos_wrt_robot[0], laser_pos_wrt_robot[1], laser_rotation_wrt_robot[2]]))
 
 # initialize the front wheel configuration
-initial_front_confg = np.array([1.54757, 0, 0, new_psi_from_abs_enc(encoders_values[0, 0], max_enc_values[0], kinematic_parameter)]) #[x, y, theta, phi]
+init_front_confg = np.array([1.54757, 0, 0, new_psi_from_abs_enc(encoders_values[0, 0], max_enc_values[0], kinematic_parameters)]) #[x, y, theta, phi]
 
-predicted_front_odometry = compute_front_wheel_odometry(initial_front_confg, kinematic_parameter, encoders_values, max_enc_values)
-print(kinematic_parameter)
-for i in range(5):
-    Z, pred, errors, kinematic_parameter = ls_calibrate_odometry_2(laser_odometry, predicted_front_odometry, kinematic_parameter, encoders_values, max_enc_values)
-    print(kinematic_parameter)
-predicted_laser_odometry = compute_laser_odometry(kinematic_parameter, encoders_values, max_enc_values, predicted_front_odometry)
+predicted_front_odometry = compute_front_wheel_odometry(init_front_confg, kinematic_parameters, encoders_values, max_enc_values)
+# print(kinematic_parameters)
+# for i in range(5):
+#     predicted_front_odometry = compute_front_wheel_odometry(init_front_confg, kinematic_parameters, encoders_values, max_enc_values)
+#     Z, pred, errors, kinematic_parameters = ls_calibrate_odometry_2(laser_odometry, predicted_front_odometry, kinematic_parameters, encoders_values, max_enc_values)
+#     print(kinematic_parameters)
+predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, encoders_values, max_enc_values, predicted_front_odometry)
+
+h_x_array, z_array, error_array = ls_calibrate_odometry_3(kinematic_parameters, laser_odometry[1:, :], predicted_laser_odometry, init_front_confg, encoders_values, max_enc_values)
+
 num_points = -1
-plt.plot(laser_odometry[0:num_points, 0], laser_odometry[0:num_points, 1])
-plt.plot(predicted_laser_odometry[0:num_points, 0], predicted_laser_odometry[0:num_points, 1])
-# kinematic_parameter = np.array([0.52829036 , 0.00849239 , 1.46677037 ,-0.11147145])
-# predicted_laser_odometry = compute_laser_odometry(kinematic_parameter, encoders_values, max_enc_values, predicted_front_odometry)
-# plt.plot(predicted_laser_odometry[0:num_points, 0], predicted_laser_odometry[0:num_points, 1])
-
-# plt.plot(laser_odometry[0:num_points, 2])
-# plt.plot(predicted_front_odometry[0:num_points, 2])
-# plt.plot(Z[0:num_points, 0], Z[0:num_points, 1])
-# plt.plot(pred[0:num_points, 0], pred[0:num_points, 1])
-# plt.plot(Z[0:num_points, 0])
-# plt.plot(pred[0:num_points, 0])
-# plt.plot(Z[0:num_points, 1])
-# plt.plot(pred[0:num_points, 1])
-# plt.plot(Z[0:num_points, 2])
-# plt.plot(pred[0:num_points, 2])
-# plt.plot(errors[0:num_points, 0])
-# plt.plot(errors[0:num_points, 1])
-# plt.plot(errors[0:num_points, 2])
+# plt.plot(z_array[0:num_points, 0], z_array[0:num_points, 1])
+# plt.plot(h_x_array[0:num_points, 0], h_x_array[0:num_points, 1])
+plt.plot(error_array[0:num_points, 0])
+plt.plot(error_array[0:num_points, 1])
+plt.plot(error_array[0:num_points, 2])
 plt.show()
 
     # laser_orient_wrt_robot = v2t([0, 0, laser_rotation_wrt_robot[2]])
