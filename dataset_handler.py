@@ -1,6 +1,10 @@
 #----------------------------------------------------------------------------------------------------
 # Clean the dataset by removing comments and replacing consecutive spaces with a single space
 
+import numpy as np
+
+#--------------------------------------------------------------------------------------------
+
 def remove_unnecessary_comments_and_spaces(old_dataset_path, #original dataset
                                            new_dataset_path, #dataset without comments and unnecessary spaces
                                            comment_symbol): #if a line starts with this symbol then it is a comment
@@ -65,4 +69,57 @@ def make_dataset_consistent(old_dataset_path, #clean dataset
             index_token += 1
         new_line = new_line[:-1] #cancel last unnecessary space 
         new_dataset_file.write(new_line +'\n') #append new line in the new (consistent) dataset
-        
+
+#--------------------------------------------------------------------------------------------
+
+def read_from_consistent_dataset(consistent_dataset_path, 
+                                 info_separator, 
+                                 timestamp_name, 
+                                 encoders_values_name, 
+                                 robot_confg_name, 
+                                 laser_confg_name):
+    timestamp = []
+    encoders_values = []
+    robot_confg = []
+    laser_confg = []
+    consistent_dataset_file = open(consistent_dataset_path)
+    all_lines = consistent_dataset_file.read().splitlines()
+    num_records = len(all_lines)
+    for line in all_lines:
+        all_tokens = line.split(" ")
+        index_token = 0
+        for token in all_tokens:
+            if token.lower() == timestamp_name + info_separator:
+                timestamp.append(float(all_tokens[index_token + 1]))
+            elif token.lower() == encoders_values_name + info_separator:
+                abs_enc_value = int(all_tokens[index_token + 1])
+                inc_enc_value = int(all_tokens[index_token + 2])
+                curr_encoders_value_np = np.array([abs_enc_value, inc_enc_value])
+                encoders_values.append(curr_encoders_value_np)
+            elif token.lower() == robot_confg_name + info_separator:
+                x = float(all_tokens[index_token + 1])
+                y = float(all_tokens[index_token + 2])
+                theta = float(all_tokens[index_token + 3])
+                curr_robot_confg_np = np.array([x, y, theta])
+                robot_confg.append(curr_robot_confg_np)
+            elif token.lower() == laser_confg_name + info_separator:
+                x = float(all_tokens[index_token + 1])
+                y = float(all_tokens[index_token + 2])
+                theta = float(all_tokens[index_token + 3])
+                curr_laser_confg_np = np.array([x, y, theta])
+                laser_confg.append(curr_laser_confg_np)
+            index_token += 1
+    return [num_records, np.array(timestamp), np.array(encoders_values), np.array(robot_confg), np.array(laser_confg)]
+
+#--------------------------------------------------------------------------------------------
+
+def dimensions_sanity_checks(num_records, num_encoders, dim_robot_confg_space, dim_laser_confg_space, timestamp, encoders_values, robot_confg, laser_confg):
+    assert timestamp.shape[0] == num_records
+    assert encoders_values.shape[0] == num_records
+    assert encoders_values.shape[1] == num_encoders
+    assert robot_confg.shape[0] == num_records
+    assert robot_confg.shape[1] == dim_robot_confg_space
+    assert laser_confg.shape[0] == num_records
+    assert laser_confg.shape[1] == dim_laser_confg_space
+
+#--------------------------------------------------------------------------------------------
