@@ -7,14 +7,16 @@ def ls_calibrate_odometry(kinematic_parameters,
                           measurements, 
                           predicted_laser_odometry, 
                           laser_odometries_added_dx, 
-                          laser_odometries_subtracted_dx):
+                          laser_odometries_subtracted_dx,
+                          first_sample_idx, 
+                          last_sample_idx):
     H = np.zeros((4,4))
     b = np.zeros((4,1))
     error_array = []
     z_array = []
     h_x_array = []
     difference_array = []
-    for i in range(1000, 1500):#len(measurements)):
+    for i in range(0, measurements.shape[0]):
         error = np.zeros((3,1))
         h_x = predicted_laser_odometry[i, :]
         h_x_array.append(h_x)
