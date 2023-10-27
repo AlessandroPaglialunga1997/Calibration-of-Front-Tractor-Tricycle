@@ -4,9 +4,9 @@ import math
 
 #--------------------------------------------------------------------------------------------
 
-def compute_laser_odometry(kinematic_parameters, front_trajectory, laser_pos_wrt_robot, laser_rotation_wrt_robot):
-    T_off = v2t(np.array([-laser_pos_wrt_robot[0], -laser_pos_wrt_robot[1],  -laser_rotation_wrt_robot[2]]))
-    T_off_inverse = v2t(np.array([laser_pos_wrt_robot[0], laser_pos_wrt_robot[1], laser_rotation_wrt_robot[2]]))
+def compute_laser_odometry(kinematic_parameters, front_trajectory):
+    T_off = v2t(np.array([-kinematic_parameters[4], -kinematic_parameters[5],  -kinematic_parameters[6]]))
+    T_off_inverse = v2t(np.array([kinematic_parameters[4], kinematic_parameters[5], kinematic_parameters[6]]))
     laser_odometry = []
     for i in range(0, len(front_trajectory)):
         rear_confg = compute_rear_configuration(kinematic_parameters[2], front_trajectory[i, :])

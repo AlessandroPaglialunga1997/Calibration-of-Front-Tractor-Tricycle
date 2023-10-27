@@ -8,14 +8,15 @@ def ls_calibrate_odometry(kinematic_parameters,
                           predicted_laser_odometry, 
                           laser_odometries_added_dx, 
                           laser_odometries_subtracted_dx,
-                          first_sample_idx, 
-                          last_sample_idx):
-    H = np.zeros((4,4))
-    b = np.zeros((4,1))
+                          first_sample_idx):
+    parameters_num = kinematic_parameters.shape[0]
+    H = np.zeros((parameters_num,parameters_num))
+    b = np.zeros((parameters_num,1))
     error_array = []
     z_array = []
     h_x_array = []
     difference_array = []
+    chi = 0
     for i in range(0, measurements.shape[0]):
         error = np.zeros((3,1))
         h_x = predicted_laser_odometry[i, :]
@@ -25,17 +26,18 @@ def ls_calibrate_odometry(kinematic_parameters,
         error[0:2, 0] = h_x[0:2] - z[0:2]
         error[2, 0] = difference_btw_angles(h_x[2], z[2])
         error_array.append(error)
-        J = Jacobian(laser_odometries_added_dx, laser_odometries_subtracted_dx, i)
+        chi += error[0]*error[0] + error[1]*error[1] + error[2]*error[2]
+        J = Jacobian(laser_odometries_added_dx, laser_odometries_subtracted_dx, i+first_sample_idx, parameters_num)
         H += np.matmul(np.transpose(J), J)
         b += np.matmul(np.transpose(J), error)
-    dx = np.zeros((4,1))
+    dx = np.zeros((parameters_num,1))
     dx = -np.matmul(np.linalg.pinv(H), b)
-    return np.array(h_x_array), np.array(z_array), np.array(error_array), kinematic_parameters + np.reshape(dx, (4))
+    return np.array(h_x_array), np.array(z_array), np.array(error_array), kinematic_parameters + np.reshape(dx, (parameters_num)), chi
 
 #--------------------------------------------------------------------------------------------
 
-def Jacobian(laser_odometries_added_dx, laser_odometries_subtracted_dx, idx):
-    J = np.zeros((3, 4))
+def Jacobian(laser_odometries_added_dx, laser_odometries_subtracted_dx, idx, parameters_num):
+    J = np.zeros((3, parameters_num))
     epsilon = 1e-4
     for i in range(laser_odometries_added_dx.shape[0]):
         plus_dx = laser_odometries_added_dx[i, idx, :]

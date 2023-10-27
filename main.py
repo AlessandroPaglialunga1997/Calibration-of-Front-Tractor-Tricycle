@@ -5,7 +5,9 @@ from ls_odometry_calibration import *
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-
+from matplotlib import animation
+from time import sleep
+import time
 #-------------------------Create Clean and Consistent Dataset----------------------------
 
 # remove_unnecessary_comments_and_spaces(old_dataset_path = "Datasets/dataset.txt", #original dataset
@@ -41,8 +43,9 @@ consistent_dataset_path = "Datasets/consistent_dataset.txt"
 dimensions_sanity_checks(num_records, num_encoders, dim_robot_pose_space, dim_laser_pose_space, timestamp, encoders_values, robot_odometry_with_initial_guess, laser_odometry)
 
 # initialize the kinematic parameters
-kinematic_parameters = np.array([0.564107, 0.0106141, 1.54757, -0.0559079]) #[Ks, Kt, axis_length, steer_off]
-#kinematic_parameters = np.array([0.1, 0.0106141, 1.4, 0]) #[Ks, Kt, axis_length, steer_off]
+                               #[Ks      | Kt       | axis_length| steer_off | x_laser| y_laser   | theta_laser]
+#kinematic_parameters = np.array([0.564107, 0.0106141, 1.54757    , -0.0559079, 1.81022, -0.0228018, -0.00108296]) 
+kinematic_parameters = np.array([0.1    , 0.0106141, 1.4        , 0         , 1.5    , 0         , 0          ]) #[Ks, Kt, axis_length, steer_off]
 
 # set the laser pose w.r.t robot reference frame
 laser_pos_wrt_robot = np.array([1.81022, -0.0228018, 0])
@@ -51,77 +54,95 @@ laser_rotation_wrt_robot =  np.array([0, 0, -0.00108296, 0.999999])
 # initialize the front wheel configuration
 init_front_pose = np.array([1.54757, 0, 0, new_psi_from_abs_enc(encoders_values[0, 0], max_enc_values[0], kinematic_parameters)]) #[x, y, theta, phi]
 
-# rounds_number = 1
-# batch_size = 300
-# batches_number = math.floor(laser_odometry.shape[0]/ batch_size)
-# epsilon = 1e-4
-# dx = np.zeros(4)
-# print(kinematic_parameters)
-# for round_idx in range(rounds_number):
-#     for batch_idx in range(batches_number):
-#         first_sample_idx = batch_idx*batch_size
-#         last_sample_idx = (batch_idx+1)*batch_size
-#         laser_odometries_added_dx = []
-#         laser_odometries_subtracted_dx = []
-#         predicted_front_wheel_odometry = compute_front_wheel_odometry(init_front_pose, kinematic_parameters, encoders_values, max_enc_values)
-#         predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, predicted_front_wheel_odometry, laser_pos_wrt_robot, laser_rotation_wrt_robot)
-#         curr_init_front_pose = predicted_front_wheel_odometry[first_sample_idx, :]
-#         for i in range(dx.shape[0]):
-#             dx[i] = epsilon
-#             front_wheel_odometry_added_dx = compute_front_wheel_odometry(curr_init_front_pose, + dx + kinematic_parameters, encoders_values[first_sample_idx:last_sample_idx, :], max_enc_values)
-#             front_wheel_odometry_subtracted_dx = compute_front_wheel_odometry(curr_init_front_pose, - dx + kinematic_parameters, encoders_values[first_sample_idx:last_sample_idx, :], max_enc_values)
-#             laser_odometry_added_dx = compute_laser_odometry(+ dx + kinematic_parameters, front_wheel_odometry_added_dx, laser_pos_wrt_robot, laser_rotation_wrt_robot)
-#             laser_odometry_subtracted_dx = compute_laser_odometry(- dx + kinematic_parameters, front_wheel_odometry_subtracted_dx, laser_pos_wrt_robot, laser_rotation_wrt_robot)
-#             dx[i] = 0
-#             laser_odometries_added_dx.append(laser_odometry_added_dx)
-#             laser_odometries_subtracted_dx.append(laser_odometry_subtracted_dx)
-#         laser_odometries_added_dx = np.array(laser_odometries_added_dx)
-#         laser_odometries_subtracted_dx = np.array(laser_odometries_subtracted_dx)
-#         plt.plot(laser_odometries_added_dx[0, :, 0], laser_odometries_added_dx[0, :, 1])
-#         plt.plot(laser_odometries_subtracted_dx[0, :, 0], laser_odometries_subtracted_dx[0, :, 1])
-#         plt.show()
-#         h_x_array, z_array, error_array, kinematic_parameters = ls_calibrate_odometry(kinematic_parameters, laser_odometry[first_sample_idx:last_sample_idx, :], predicted_laser_odometry[first_sample_idx:last_sample_idx, :], laser_odometries_added_dx, laser_odometries_subtracted_dx)
-
-#         print(kinematic_parameters)
-
-
+#0.59172425  0.010626    1.58202823   -0.06640184  1.79665949 -0.01620621 -0.01663678 12871
+#0.58953966  0.010671    1.58365561   -0.06732237  1.78486353 -0.00092604 -0.00466705 214
+#0.58953958  0.010671    1.58365531   -0.06732238  1.78486293 -0.00092524 -4.66654452 209
+#0.564107  , 0.0106141,  1.54757    , -0.0559079,  1.81022,   -0.0228018, -0.00108296 
 
 rounds_number = 1
 batch_size = 300
 batches_number = math.floor(laser_odometry.shape[0]/ batch_size)
 epsilon = 1e-4
-dx = np.zeros(4)
-print(kinematic_parameters)
+dx = np.zeros(kinematic_parameters.shape[0])
+
+fig, ax = plt.subplots()
+x = laser_odometry[:, 0]
+y = laser_odometry[:, 1]
+line1, = ax.plot(x, y, color='b', linestyle='-')
+line2, = ax.plot(x, y, color='r', linestyle='-')
+ax.set_xlim(-5, 5)
+ax.set_ylim(-5, 5)
 for round_idx in range(rounds_number):
-    curr_init_front_pose = init_front_pose
     for batch_idx in range(batches_number):
         first_sample_idx = batch_idx*batch_size - batch_idx
         last_sample_idx = (batch_idx+1)*batch_size - (batch_idx+1)
         laser_odometries_added_dx = []
         laser_odometries_subtracted_dx = []
         predicted_front_wheel_odometry = compute_front_wheel_odometry(init_front_pose, kinematic_parameters, encoders_values, max_enc_values)
-        predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, predicted_front_wheel_odometry, laser_pos_wrt_robot, laser_rotation_wrt_robot)
-        curr_init_front_pose = predicted_front_wheel_odometry[first_sample_idx, :]
+        predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, predicted_front_wheel_odometry)
         for i in range(dx.shape[0]):
             dx[i] = epsilon
-            front_wheel_odometry_added_dx = compute_front_wheel_odometry(curr_init_front_pose, + dx + kinematic_parameters, encoders_values[first_sample_idx:last_sample_idx+1, :], max_enc_values)
-            front_wheel_odometry_subtracted_dx = compute_front_wheel_odometry(curr_init_front_pose, - dx + kinematic_parameters, encoders_values[first_sample_idx:last_sample_idx+1, :], max_enc_values)
-            laser_odometry_added_dx = compute_laser_odometry(+ dx + kinematic_parameters, front_wheel_odometry_added_dx, laser_pos_wrt_robot, laser_rotation_wrt_robot)
-            laser_odometry_subtracted_dx = compute_laser_odometry(- dx + kinematic_parameters, front_wheel_odometry_subtracted_dx, laser_pos_wrt_robot, laser_rotation_wrt_robot)
+            front_wheel_odometry_added_dx = compute_front_wheel_odometry(init_front_pose, + dx + kinematic_parameters, encoders_values, max_enc_values)
+            front_wheel_odometry_subtracted_dx = compute_front_wheel_odometry(init_front_pose, - dx + kinematic_parameters, encoders_values, max_enc_values)
+            laser_odometry_added_dx = compute_laser_odometry(+ dx + kinematic_parameters, front_wheel_odometry_added_dx)
+            laser_odometry_subtracted_dx = compute_laser_odometry(- dx + kinematic_parameters, front_wheel_odometry_subtracted_dx)
             dx[i] = 0
             laser_odometries_added_dx.append(laser_odometry_added_dx)
             laser_odometries_subtracted_dx.append(laser_odometry_subtracted_dx)
         laser_odometries_added_dx = np.array(laser_odometries_added_dx)
         laser_odometries_subtracted_dx = np.array(laser_odometries_subtracted_dx)
-        plt.plot(laser_odometries_added_dx[0, :, 0], laser_odometries_added_dx[0, :, 1])
-        plt.plot(laser_odometries_subtracted_dx[0,:, 0], laser_odometries_subtracted_dx[0,:, 1])
-        plt.show()
-        h_x_array, z_array, error_array, kinematic_parameters = ls_calibrate_odometry(kinematic_parameters, laser_odometry[first_sample_idx:last_sample_idx+1, :], predicted_laser_odometry[first_sample_idx:last_sample_idx+1, :], laser_odometries_added_dx, laser_odometries_subtracted_dx, first_sample_idx, last_sample_idx)
+        h_x_array, z_array, error_array, kinematic_parameters, chi_ = ls_calibrate_odometry(kinematic_parameters, laser_odometry[first_sample_idx:last_sample_idx+1, :], predicted_laser_odometry[first_sample_idx:last_sample_idx+1, :], laser_odometries_added_dx, laser_odometries_subtracted_dx, first_sample_idx)
         print(kinematic_parameters)
-
+        predicted_front_wheel_odometry = compute_front_wheel_odometry(init_front_pose, kinematic_parameters, encoders_values, max_enc_values)
+        predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, predicted_front_wheel_odometry)
+        x = predicted_laser_odometry[:, 0]
+        y = predicted_laser_odometry[:, 1]
+        line2.set_xdata(x)
+        line2.set_ydata(y)
+        plt.pause(1)
+        ax.relim()
+        ax.autoscale_view()
+plt.show()
 # predicted_front_wheel_odometry = compute_front_wheel_odometry(init_front_pose, kinematic_parameters, encoders_values, max_enc_values)
-# predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, predicted_front_wheel_odometry, laser_pos_wrt_robot, laser_rotation_wrt_robot)
+# predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, predicted_front_wheel_odometry)
 # num_points = -1
 # plt.plot(laser_odometry[0:num_points, 0], laser_odometry[0:num_points, 1])
 # plt.plot(predicted_laser_odometry[0:num_points, 0], predicted_laser_odometry[0:num_points, 1])
+# plt.show()
+
+# # Create initial data for the line
+# x = np.linspace(0, 10, 100)
+# y = 2 * x + 3  # Initial line: y = 2x + 3
+
+# # Create a figure and axis
+# fig, ax = plt.subplots()
+
+# # Plot the initial line
+# line, = ax.plot(x, y, label="Line 1", color='b', linestyle='-')
+
+# # Add labels and a title
+# ax.set_xlabel("X-axis")
+# ax.set_ylabel("Y-axis")
+# ax.set_title("Changing Line on the Same Plot")
+
+# # Add a legend
+# ax.legend()
+
+# # Display the initial plot
+# plt.pause(2)  # Pause for 2 seconds
+
+# # Change the line
+# y = -x + 5  # Updated line: y = -x + 5
+
+# # Update the line data and redraw
+# line.set_ydata(y)
+# ax.relim()
+# ax.autoscale_view()
+
+# # Add labels and a title
+# ax.set_xlabel("X-axis")
+# ax.set_ylabel("Y-axis")
+# ax.set_title("Updated Plot of a Line")
+
+# # Display the updated plot
 # plt.show()
