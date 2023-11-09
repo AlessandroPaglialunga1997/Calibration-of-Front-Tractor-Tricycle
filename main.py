@@ -1,3 +1,5 @@
+#--------------------------------------------------------------------------------------------
+
 from dataset_handler import *
 from utility import *
 from front_tractor_tricycle import *
@@ -8,6 +10,7 @@ import math
 import matplotlib.pyplot as plt
 from time import sleep
 import time
+
 #-------------------------Create Clean and Consistent Dataset----------------------------
 
 # remove_unnecessary_comments_and_spaces(old_dataset_path = "Datasets/dataset.txt", #original dataset
@@ -43,15 +46,16 @@ consistent_dataset_path = "Datasets/consistent_dataset.txt"
 dimensions_sanity_checks(num_records, num_encoders, dim_robot_pose_space, dim_laser_pose_space, timestamp, encoders_values, robot_odometry_with_initial_guess, laser_odometry)
 
 # initialize the kinematic parameters
-                               #[Ks      | Kt       | axis_length| steer_off | x_laser| y_laser   | theta_laser]
-kinematic_parameters = np.array([0.1    , 0.0106141, 1.4        , 0         , 1.5    , 0         , 0          ]) #[Ks, Kt, axis_length, steer_off]
+# IMPORTANT NOTE                 [0]   [1]           [2]          [3]          [4]            [5]              [6]
+       # kinematic parameters = [ Ks | Kt       | axis_length| steer_off| robot_x_laser| robot_y_laser| robot_theta_laser]
+kinematic_parameters = np.array([ 0.1, 0.0106141, 1.4        , 0        , 1.5          , 0            , 0          ]) 
 
 # set the laser pose w.r.t robot reference frame
 laser_pos_wrt_robot = np.array([1.81022, -0.0228018, 0])
 laser_rotation_wrt_robot =  np.array([0, 0, -0.00108296, 0.999999])
 
 # initialize the front wheel configuration
-init_front_pose = np.array([1.54757, 0, 0, new_psi_from_abs_enc(encoders_values[0, 0], max_enc_values[0], kinematic_parameters)]) #[x, y, theta, phi]
+init_front_pose = np.array([1.54757, 0, 0, new_psi_from_abs_enc(encoders_values[0, 0], max_enc_values[0], kinematic_parameters)]) #[x, y, theta, psi]
 
 # initialize plot
 fig, ax = plt.subplots(nrows=2, ncols=1)

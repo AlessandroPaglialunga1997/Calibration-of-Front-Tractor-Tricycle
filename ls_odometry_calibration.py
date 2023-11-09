@@ -1,3 +1,8 @@
+# IMPORTANT NOTE           [0]  [1]      [2]          [3]           [4]             [5]               [6]
+# kinematic parameters = [ Ks | Kt | axis_length | steer_off | robot_x_laser | robot_y_laser | robot_theta_laser]
+
+#--------------------------------------------------------------------------------------------
+
 from utility import *
 from front_tractor_tricycle import *
 from graphic_representation import *
@@ -63,11 +68,12 @@ def ls_calibrate_odometry(kinematic_parameters, measurements,
         z = measurements[i, :]
         error[0:2, 0] = h_x[0:2] - z[0:2]
         error[2, 0] = difference_btw_angles(h_x[2], z[2])
-        chi += error[0]*error[0] + error[1]*error[1] + error[2]*error[2] 
         J = Jacobian(laser_odometries_added_dx, laser_odometries_subtracted_dx, i+first_sample_idx, parameters_num, epsilon)
         H += np.matmul(np.transpose(J), J)
         b += np.matmul(np.transpose(J), error)
-    
+
+        chi += np.matmul(np.transpose(error), error)
+
     dx = -np.matmul(np.linalg.pinv(H), b)
     print(chi)
     return kinematic_parameters + np.reshape(dx, (parameters_num))

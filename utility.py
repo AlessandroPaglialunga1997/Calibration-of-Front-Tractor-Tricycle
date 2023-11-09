@@ -1,16 +1,18 @@
+#--------------------------------------------------------------------------------------------
+
 import math
 import numpy as np
 
 #--------------------------------------------------------------------------------------------
 
 def difference_btw_angles(theta_1, theta_2):
-    theta_1_normalized = (theta_1 + math.pi) % (2 * math.pi) - math.pi
-    theta_2_normalized = (theta_2 + math.pi) % (2 * math.pi) - math.pi
+    normalized_theta_1 = (theta_1 + math.pi) % (2 * math.pi) - math.pi
+    normalized_theta_2 = (theta_2 + math.pi) % (2 * math.pi) - math.pi
     
-    difference = theta_1_normalized - theta_2_normalized
-    difference_normalized = (difference + math.pi) % (2 * math.pi) - math.pi
+    difference = normalized_theta_1 - normalized_theta_2
+    normalized_difference = (difference + math.pi) % (2 * math.pi) - math.pi
     
-    return difference_normalized
+    return normalized_difference
 
 #--------------------------------------------------------------------------------------------
 
