@@ -9,19 +9,24 @@ from graphic_representation import *
 import numpy as np
 
 #--------------------------------------------------------------------------------------------
+# To measure numerical Jacobian perturbated trajectories are needed.
+# Given perurbeted initial front wheel config., kinematic parameters by epsilon and encoders measurements,
+# return two laser wheel odometry trajectory: one with kinematic parameters perturbated by [-]epsilon
+# and one with kinematic parameters perturbated by [+]epsilon
 
 def compute_perturbed_trajectories(epsilon, init_front_pose, kinematic_parameters, encoders_values, max_enc_values):
     laser_odometries_added_dx = []
     laser_odometries_subtracted_dx = []
     parameters_num = kinematic_parameters.shape[0]
     perturbation = np.zeros((parameters_num))
-    
+    # For each kinematic parameters compute perturbated laser odometry trajectories
+    # perturbing the current parameter and leaving the others at zero
     for j in range(parameters_num):
         perturbation[j] = epsilon
-    
+        # Compute perturbated front wheel odometry trajectories
         front_wheel_odometry_added_dx = compute_front_wheel_odometry(init_front_pose, + perturbation + kinematic_parameters, encoders_values, max_enc_values)
         front_wheel_odometry_subtracted_dx = compute_front_wheel_odometry(init_front_pose, - perturbation + kinematic_parameters, encoders_values, max_enc_values)
-        
+        # Compute perturbated laser odometry trajectories
         laser_odometry_added_dx = compute_laser_odometry(+ perturbation + kinematic_parameters, front_wheel_odometry_added_dx)
         laser_odometry_subtracted_dx = compute_laser_odometry(- perturbation + kinematic_parameters, front_wheel_odometry_subtracted_dx)
         

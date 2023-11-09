@@ -11,7 +11,9 @@ import matplotlib.pyplot as plt
 from time import sleep
 import time
 
-#-------------------------Create Clean and Consistent Dataset----------------------------
+#---------------------------Create Clean and Consistent Dataset------------------------------
+
+# IMPORTANTE NOTE: Uncomment the following part if "consistent_dataset.txt" does not exist in the Datasets folder
 
 # remove_unnecessary_comments_and_spaces(old_dataset_path = "Datasets/dataset.txt", #original dataset
 #                                        new_dataset_path = "Datasets/clened_dataset.txt", #dataset without comments and unnecessary spaces
@@ -27,7 +29,7 @@ import time
 
 #--------------------------------------------------------------------------------------------
 
-# initializes the main system variables
+# Initializes the main system variables
 info_separator = ":"
 timestamp_name = "time"
 encoders_values_name = "ticks"
@@ -39,35 +41,38 @@ laser_pose_name = "tracker_pose"
 dim_laser_pose_space = 3
 consistent_dataset_path = "Datasets/consistent_dataset.txt"
 
-# read from clened and consistent dataset
+# Read from clened and consistent dataset
 [num_records, timestamp, encoders_values, robot_odometry_with_initial_guess, laser_odometry] = read_from_consistent_dataset(consistent_dataset_path, info_separator, timestamp_name, encoders_values_name, robot_pose_name, laser_pose_name)
 
-# check that all dimensions are consistent
+# Check that all dimensions are consistent
 dimensions_sanity_checks(num_records, num_encoders, dim_robot_pose_space, dim_laser_pose_space, timestamp, encoders_values, robot_odometry_with_initial_guess, laser_odometry)
 
-# initialize the kinematic parameters
+# Initialize the kinematic parameters
 # IMPORTANT NOTE                 [0]   [1]           [2]          [3]          [4]            [5]              [6]
-       # kinematic parameters = [ Ks | Kt       | axis_length| steer_off| robot_x_laser| robot_y_laser| robot_theta_laser]
+# kinematic parameters =        [ Ks | Kt       | axis_length| steer_off| robot_x_laser| robot_y_laser| robot_theta_laser]
 kinematic_parameters = np.array([ 0.1, 0.0106141, 1.4        , 0        , 1.5          , 0            , 0          ]) 
 
-# set the laser pose w.r.t robot reference frame
+# Set the laser pose w.r.t robot reference frame
 laser_pos_wrt_robot = np.array([1.81022, -0.0228018, 0])
 laser_rotation_wrt_robot =  np.array([0, 0, -0.00108296, 0.999999])
 
-# initialize the front wheel configuration
+# Initialize the front wheel configuration
 init_front_pose = np.array([1.54757, 0, 0, new_psi_from_abs_enc(encoders_values[0, 0], max_enc_values[0], kinematic_parameters)]) #[x, y, theta, psi]
 
-# initialize plot
+# Initialize plot
 fig, ax = plt.subplots(nrows=2, ncols=1)
 predicted_xy_laser_plot, predicted_theta_laser_plot = initialize_plot(fig, ax, laser_odometry)
 
-# initialize hyperparameter of least square method and fit
+# First training on first 600 samples to get closer to the minimum
+# Initialize hyperparameter of least square method and fit
 batch_size = math.floor(laser_odometry.shape[0]/5)
 batches_number = 1
 epsilon = 1e-4
 rounds_number_batch = 5
 kinematic_parameters = fit(epsilon, batch_size, batches_number, rounds_number_batch, ax, laser_odometry, kinematic_parameters, init_front_pose, encoders_values, max_enc_values, predicted_xy_laser_plot, predicted_theta_laser_plot)
 
+# Second training on all samples to achieve minimum
+# Initialize hyperparameter of least square method and fit
 epsilon = 1e-4
 batch_size = laser_odometry.shape[0]
 batches_number = math.floor(laser_odometry.shape[0]/ batch_size)
