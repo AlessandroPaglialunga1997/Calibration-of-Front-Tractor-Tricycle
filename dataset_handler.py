@@ -11,6 +11,7 @@ def remove_unnecessary_comments_and_spaces(old_dataset_path, #original dataset
     old_dataset_file = open(old_dataset_path) # open the original dataset file
     new_dataset_file = open(new_dataset_path,'w') # open or create a new (clean) dataset file
     all_lines = old_dataset_file.read().splitlines()
+    
     for line in all_lines: #check whether a line is a comment or contains unnecessary spaces
         if line[0] == comment_symbol: #I assume that in the case where a line was a comment then the first character would be the comment symbol
             continue #ingnore comment
@@ -45,10 +46,12 @@ def make_dataset_consistent(old_dataset_path, #clean dataset
     new_inc_enc = 0 #the incremental encoder value can start from 0 because during odometry only the difference between two consecutive incremental encoder value is used
     previous_time = first_timestamp
     new_time = 0 #reset the timestamp for the same reason of incremental encoder value
+    
     for line in all_lines:
         all_tokens = line.split(" ")
         index_token = 0
         new_line = '' #initilize new line
+        
         for token in all_tokens:
             new_line = new_line + token + " "
             if token.lower() == timestamp_name + info_separator: #if the current token is "time:" then the second one is its value
@@ -92,9 +95,11 @@ def read_from_consistent_dataset(consistent_dataset_path,
     consistent_dataset_file = open(consistent_dataset_path)
     all_lines = consistent_dataset_file.read().splitlines()
     num_records = len(all_lines)
+    
     for line in all_lines:
         all_tokens = line.split(" ")
         index_token = 0
+        
         for token in all_tokens:
             if token.lower() == timestamp_name + info_separator: #if the current token is "time:" then the second one is its value
                 timestamp.append(float(all_tokens[index_token + 1]))

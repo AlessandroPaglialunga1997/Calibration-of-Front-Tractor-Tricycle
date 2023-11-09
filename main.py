@@ -57,35 +57,16 @@ init_front_pose = np.array([1.54757, 0, 0, new_psi_from_abs_enc(encoders_values[
 fig, ax = plt.subplots(nrows=2, ncols=1)
 predicted_xy_laser_plot, predicted_theta_laser_plot = initialize_plot(fig, ax, laser_odometry)
 
-print(kinematic_parameters)
-predicted_front_wheel_odometry = compute_front_wheel_odometry(init_front_pose, kinematic_parameters, encoders_values, max_enc_values)
-predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, predicted_front_wheel_odometry)
-double_plot(ax, predicted_laser_odometry, predicted_xy_laser_plot, predicted_theta_laser_plot)
-
+# initialize hyperparameter of least square method and fit
 batch_size = math.floor(laser_odometry.shape[0]/5)
-batches_number = math.floor(laser_odometry.shape[0]/ batch_size)
+batches_number = 1
 epsilon = 1e-4
 rounds_number_batch = 5
-
-for round_idx in range(rounds_number_batch):
-    kinematic_parameters = ls_calibrate_odometry(kinematic_parameters, laser_odometry[:batch_size, :], predicted_laser_odometry[:batch_size, :], init_front_pose, encoders_values[:batch_size, :], max_enc_values, 0, epsilon)
-    predicted_front_wheel_odometry = compute_front_wheel_odometry(init_front_pose, kinematic_parameters, encoders_values[:, :], max_enc_values)
-    predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, predicted_front_wheel_odometry)
-    double_plot(ax, predicted_laser_odometry, predicted_xy_laser_plot, predicted_theta_laser_plot)
+kinematic_parameters = fit(epsilon, batch_size, batches_number, rounds_number_batch, ax, laser_odometry, kinematic_parameters, init_front_pose, encoders_values, max_enc_values, predicted_xy_laser_plot, predicted_theta_laser_plot)
 
 epsilon = 1e-4
 batch_size = laser_odometry.shape[0]
 batches_number = math.floor(laser_odometry.shape[0]/ batch_size)
-rounds_number_batch = 3
+rounds_number_batch = 5
+kinematic_parameters = fit(epsilon, batch_size, batches_number, rounds_number_batch, ax, laser_odometry, kinematic_parameters, init_front_pose, encoders_values, max_enc_values, predicted_xy_laser_plot, predicted_theta_laser_plot)
 
-for round_idx in range(rounds_number_batch):
-    for batch_idx in range(0, batches_number):
-        first_sample_idx = batch_idx*batch_size
-        last_sample_idx = (batch_idx+1)*batch_size
-        if last_sample_idx > laser_odometry.shape[0]:
-            last_sample_idx = laser_odometry.shape[0]
-        kinematic_parameters = ls_calibrate_odometry(kinematic_parameters, laser_odometry[first_sample_idx:last_sample_idx, :], predicted_laser_odometry[first_sample_idx:last_sample_idx, :], init_front_pose, encoders_values[:last_sample_idx, :], max_enc_values, first_sample_idx, epsilon)
-        predicted_front_wheel_odometry = compute_front_wheel_odometry(init_front_pose, kinematic_parameters, encoders_values[:, :], max_enc_values)
-        predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, predicted_front_wheel_odometry)
-        print(kinematic_parameters)
-        double_plot(ax, predicted_laser_odometry, predicted_xy_laser_plot, predicted_theta_laser_plot)
