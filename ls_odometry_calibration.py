@@ -10,7 +10,7 @@ import numpy as np
 
 #--------------------------------------------------------------------------------------------
 # To measure numerical Jacobian perturbated trajectories are needed.
-# Given perurbeted initial front wheel config., kinematic parameters by epsilon and encoders measurements,
+# Given initial front wheel config., epsilon-perturbed kinematic parameters and encoders measurements,
 # return two laser wheel odometry trajectory: one with kinematic parameters perturbated by [-]epsilon
 # and one with kinematic parameters perturbated by [+]epsilon
 
@@ -24,10 +24,14 @@ def compute_perturbed_trajectories(epsilon, init_front_pose, kinematic_parameter
     for j in range(parameters_num):
         perturbation[j] = epsilon
         # Compute perturbated front wheel odometry trajectories
+        # [+]epsilon
         front_wheel_odometry_added_dx = compute_front_wheel_odometry(init_front_pose, + perturbation + kinematic_parameters, encoders_values, max_enc_values)
+        # [-]epsilon
         front_wheel_odometry_subtracted_dx = compute_front_wheel_odometry(init_front_pose, - perturbation + kinematic_parameters, encoders_values, max_enc_values)
         # Compute perturbated laser odometry trajectories
+        # [+]epsilon
         laser_odometry_added_dx = compute_laser_odometry(+ perturbation + kinematic_parameters, front_wheel_odometry_added_dx)
+        # [-]epsilon
         laser_odometry_subtracted_dx = compute_laser_odometry(- perturbation + kinematic_parameters, front_wheel_odometry_subtracted_dx)
         
         perturbation[j] = 0    
@@ -38,6 +42,8 @@ def compute_perturbed_trajectories(epsilon, init_front_pose, kinematic_parameter
     laser_odometries_subtracted_dx = np.array(laser_odometries_subtracted_dx)
     return laser_odometries_added_dx, laser_odometries_subtracted_dx
 #--------------------------------------------------------------------------------------------
+# Numerical column Jacobian is computed as the difference between poses
+# these poses are extracted from epsilon-perturbed odometric trajectories
 
 def Jacobian(laser_odometries_added_dx, laser_odometries_subtracted_dx, idx, parameters_num, epsilon):
     J = np.zeros((3, parameters_num))
@@ -52,21 +58,20 @@ def Jacobian(laser_odometries_added_dx, laser_odometries_subtracted_dx, idx, par
     return J
 
 #--------------------------------------------------------------------------------------------
+# See section 2 of the document attached to the project.
 
-def ls_calibrate_odometry(kinematic_parameters, measurements, 
+def least_squares_method(kinematic_parameters, measurements, 
                           predicted_laser_odometry, init_front_pose,
                           encoders_values, max_enc_values,
                           first_sample_idx, epsilon):
 
-    batch_size = measurements.shape[0]
     parameters_num = kinematic_parameters.shape[0]    
     dx = np.zeros(kinematic_parameters.shape[0])
     H = np.zeros((parameters_num,parameters_num))
     b = np.zeros((parameters_num,1))
-    chi = 0
 
     laser_odometries_added_dx, laser_odometries_subtracted_dx = compute_perturbed_trajectories(epsilon, init_front_pose, kinematic_parameters, encoders_values, max_enc_values)
-
+    total_error = 0
     for i in range(0, measurements.shape[0]):
         error = np.zeros((3,1))
         h_x = predicted_laser_odometry[i, :]
@@ -77,20 +82,23 @@ def ls_calibrate_odometry(kinematic_parameters, measurements,
         H += np.matmul(np.transpose(J), J)
         b += np.matmul(np.transpose(J), error)
 
-        chi += np.matmul(np.transpose(error), error)
+        total_error += np.matmul(np.transpose(error), error)
 
     dx = -np.matmul(np.linalg.pinv(H), b)
-    print(chi)
+    print(total_error)
     return kinematic_parameters + np.reshape(dx, (parameters_num))
 
 #--------------------------------------------------------------------------------------------
+# Training phase:
+# use least squares method on each batch from index 0 to index 'batches_number' for 'rounds_number' rounds
+# use 'epsilon' as perturbation
+# use 'ax', 'predicted_xy_laser_plot' and 'predicted_theta_laser_plot' to plot new trajectories
 
-def fit(epsilon, batch_size, batches_number, rounds_number_batch, ax, 
-        laser_odometry, kinematic_parameters, init_front_pose, 
-        encoders_values, max_enc_values, 
+def fit(epsilon, batch_size, batches_number, rounds_number, ax, 
+        laser_odometry, kinematic_parameters, init_front_pose, encoders_values, max_enc_values, 
         predicted_xy_laser_plot, predicted_theta_laser_plot):
 
-    for round_idx in range(rounds_number_batch):
+    for round_idx in range(rounds_number):
         for batch_idx in range(0, batches_number):
             predicted_front_wheel_odometry = compute_front_wheel_odometry(init_front_pose, kinematic_parameters, encoders_values[:, :], max_enc_values)
             predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, predicted_front_wheel_odometry)
@@ -100,7 +108,7 @@ def fit(epsilon, batch_size, batches_number, rounds_number_batch, ax,
             last_sample_idx = (batch_idx+1)*batch_size
             last_sample_idx = last_sample_idx if last_sample_idx < laser_odometry.shape[0] else laser_odometry.shape[0]
             
-            kinematic_parameters = ls_calibrate_odometry(kinematic_parameters, laser_odometry[first_sample_idx:last_sample_idx, :], predicted_laser_odometry[first_sample_idx:last_sample_idx, :], init_front_pose, encoders_values[:last_sample_idx, :], max_enc_values, first_sample_idx, epsilon)
+            kinematic_parameters = least_squares_method(kinematic_parameters, laser_odometry[first_sample_idx:last_sample_idx, :], predicted_laser_odometry[first_sample_idx:last_sample_idx, :], init_front_pose, encoders_values[:last_sample_idx, :], max_enc_values, first_sample_idx, epsilon)
             
     return kinematic_parameters
 

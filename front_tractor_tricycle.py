@@ -1,6 +1,7 @@
 # IMPORTANT NOTE           [0]  [1]      [2]          [3]           [4]             [5]               [6]
 # kinematic parameters = [ Ks | Kt | axis_length | steer_off | robot_x_laser | robot_y_laser | robot_theta_laser]
 
+# See section 2 of the document attached to the project.
 #--------------------------------------------------------------------------------------------
 
 from utility import *
