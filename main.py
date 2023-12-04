@@ -85,5 +85,6 @@ batch_size = laser_odometry.shape[0] #all dataset in one batch
 batches_number = math.floor(laser_odometry.shape[0]/batch_size)
 rounds_number = 6
 kinematic_parameters = fit(epsilon, batch_size, batches_number, rounds_number, ax, laser_odometry, kinematic_parameters, init_front_pose, encoders_values, max_enc_values, predicted_xy_laser_plot, predicted_theta_laser_plot)
+print("end of calibration")
 plt.show()
 #--------------------------------------------------------------------------------------------
