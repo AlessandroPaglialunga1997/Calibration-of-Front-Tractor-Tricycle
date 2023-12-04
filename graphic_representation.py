@@ -2,6 +2,7 @@
 
 import matplotlib.pyplot as plt
 import time
+
 #--------------------------------------------------------------------------------------------
 
 def initialize_plot(fig, ax, laser_odometry):
