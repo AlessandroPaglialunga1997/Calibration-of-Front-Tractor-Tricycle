@@ -1,7 +1,7 @@
 #--------------------------------------------------------------------------------------------
 
 import matplotlib.pyplot as plt
-
+import time
 #--------------------------------------------------------------------------------------------
 
 def initialize_plot(fig, ax, laser_odometry):
@@ -15,6 +15,10 @@ def initialize_plot(fig, ax, laser_odometry):
     # It is initialized with "laser_odometry" but it will be reset during training
     predicted_theta_laser_plot, = ax[1].plot(laser_odometry[:, 2], color='r', label="Predicted Theta Laser Trajectory", linestyle='solid')
     
+    ax[0].set_xlabel("x")
+    ax[0].set_ylabel("y", rotation=0)
+    ax[1].set_xlabel("sample index")
+    ax[1].set_ylabel("θ", rotation=0)
     ax[0].legend()
     ax[1].legend()
     ax[0].set_xlim(-5, 5)
@@ -40,5 +44,4 @@ def double_plot(ax, predicted_odometry_trajectory, predicted_xy_plot, predcted_t
     ax[0].autoscale_view()
     ax[1].relim()
     ax[1].autoscale_view()
-
 #--------------------------------------------------------------------------------------------

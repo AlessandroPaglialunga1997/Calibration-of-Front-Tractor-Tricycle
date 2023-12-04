@@ -100,6 +100,7 @@ def fit(epsilon, batch_size, batches_number, rounds_number, ax,
 
     for round_idx in range(rounds_number):
         for batch_idx in range(0, batches_number):
+            print(kinematic_parameters)
             predicted_front_wheel_odometry = compute_front_wheel_odometry(init_front_pose, kinematic_parameters, encoders_values[:, :], max_enc_values)
             predicted_laser_odometry = compute_laser_odometry(kinematic_parameters, predicted_front_wheel_odometry)
             double_plot(ax, predicted_laser_odometry, predicted_xy_laser_plot, predicted_theta_laser_plot)
